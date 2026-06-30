@@ -48,8 +48,9 @@ class OscarAlhoBot(commands.Bot):
         self.trello = TrelloClient(cfg.trello_key, cfg.trello_token, cfg.trello_board_id)
         self.catalog = Catalog(self.trello)
         self.db = Database(cfg.db_path)
-        self.telegram = None  # ponte opcional (telegram_bridge.TelegramBridge)
-        self.kick = None      # cliente opcional da Kick (kick_client.KickClient)
+        self.telegram = None   # ponte opcional (telegram_bridge.TelegramBridge)
+        self.kick = None       # cliente opcional da Kick (kick_client.KickClient)
+        self.kick_chat = None  # leitor de chat da Kick (kick_chat.KickChatListener)
 
     async def setup_hook(self) -> None:
         await self.db.connect()
@@ -103,6 +104,17 @@ class OscarAlhoBot(commands.Bot):
                 log.warning("Cliente Kick desativado: %s", e)
                 self.kick = None
 
+        if self.kick is not None and self.cfg.kick_chatroom_id:
+            try:
+                from kick_chat import KickChatListener
+
+                self.kick_chat = KickChatListener(self, self.cfg.kick_chatroom_id)
+                self.kick_chat.start()
+                log.info("Leitor do chat da Kick iniciado.")
+            except Exception as e:  # noqa: BLE001
+                log.warning("Leitor da Kick desativado: %s", e)
+                self.kick_chat = None
+
     async def notify_telegram(self, texto: str, foto: bytes | None = None) -> None:
         """Espelha um anúncio no Telegram, se a ponte estiver ativa."""
         if self.telegram is not None:
@@ -140,6 +152,8 @@ class OscarAlhoBot(commands.Bot):
 
     async def close(self) -> None:
         # encerra o gateway e as tarefas/cogs primeiro, depois os recursos
+        if self.kick_chat is not None:
+            await self.kick_chat.stop()
         if self.telegram is not None:
             await self.telegram.stop()
         if self.kick is not None:

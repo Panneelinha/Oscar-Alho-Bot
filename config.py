@@ -38,6 +38,7 @@ class Config:
     kick_client_id: str            # app da Kick
     kick_client_secret: str
     kick_refresh_token: str        # refresh token OAuth (semente; rotaciona no DB)
+    kick_chatroom_id: int          # id do chatroom (pro websocket de leitura), 0 = sem leitura
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -83,4 +84,5 @@ class Config:
             kick_client_id=os.getenv("KICK_CLIENT_ID", "").strip(),
             kick_client_secret=os.getenv("KICK_CLIENT_SECRET", "").strip(),
             kick_refresh_token=os.getenv("KICK_REFRESH_TOKEN", "").strip(),
+            kick_chatroom_id=_int("KICK_CHATROOM_ID") or 0,
         )
