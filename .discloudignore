@@ -1,0 +1,14 @@
+# Não enviar para o Discloud (mantém o deploy leve e preserva o banco em produção)
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+*.sqlite3
+.env.example
+test_parser.py
+README.md
+DEPLOY.md
+start.bat
+outputs/

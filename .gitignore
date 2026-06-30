@@ -1,0 +1,11 @@
+# Segredos — NUNCA versionar
+.env
+
+# Banco de votos local
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
