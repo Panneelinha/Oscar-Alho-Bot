@@ -34,7 +34,7 @@ def movie_embed(
         title=f"🍿 {titulo}",
         description="\n".join(desc_partes) or None,
         color=COR,
-        url=mv.imdb_url or mv.url or None,
+        url=mv.imdb_url or None,
     )
 
     if mv.imdb_nota:
@@ -80,9 +80,7 @@ def movie_embed(
 
     if poster_url:
         embed.set_image(url=poster_url)
-    if mv.url:
-        embed.add_field(name="No Trello", value=f"[abrir card]({mv.url})", inline=True)
-    embed.set_footer(text="Oscar Alho 🧄 • dados via Trello")
+    embed.set_footer(text="Oscar Alho 🧄")
     return embed
 
 
@@ -298,7 +296,7 @@ def filme_resumo_embed(mv: Movie, poster_url: str | None = None) -> discord.Embe
         title=f"🍿 {mv.name}",
         description=" · ".join(partes) or None,
         color=COR,
-        url=mv.imdb_url or mv.url or None,
+        url=mv.imdb_url or None,
     )
     if poster_url:
         embed.set_thumbnail(url=poster_url)
@@ -478,7 +476,7 @@ def estatisticas_embed(cat: dict, clube: dict) -> discord.Embed:
         linhas.append(f"🌟 Melhor nota do clube: **{clube['top_nota'][0]}** ({clube['top_nota'][1]}/10)")
     embed.add_field(name="🎟️ Clube (Discord)", value="\n".join(linhas), inline=False)
 
-    embed.set_footer(text="Oscar Alho 🧄 • dados do Trello + atividade do Discord")
+    embed.set_footer(text="Oscar Alho 🧄 • catálogo + atividade do Discord")
     return embed
 
 

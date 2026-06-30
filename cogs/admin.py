@@ -68,10 +68,8 @@ class Admin(commands.Cog):
             await interaction.followup.send("⚠️ Não consegui criar o card no Trello.", ephemeral=True)
             return
         self.bot.catalog.invalidate()
-        link = card.get("shortUrl") or card.get("url") or ""
-        sufixo = f"\n{link}" if link else ""
         await interaction.followup.send(
-            f"✅ Criado **{nome}** em **{LISTA_A_ASSISTIR}**.{sufixo}", ephemeral=True
+            f"✅ Criado **{nome}** em **{LISTA_A_ASSISTIR}**.", ephemeral=True
         )
 
     @app_commands.command(name="mover", description="(admin) Move um filme para outra lista do board.")
