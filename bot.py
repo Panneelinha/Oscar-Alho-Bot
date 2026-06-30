@@ -49,6 +49,7 @@ class OscarAlhoBot(commands.Bot):
         self.catalog = Catalog(self.trello)
         self.db = Database(cfg.db_path)
         self.telegram = None  # ponte opcional (telegram_bridge.TelegramBridge)
+        self.kick = None      # cliente opcional da Kick (kick_client.KickClient)
 
     async def setup_hook(self) -> None:
         await self.db.connect()
@@ -76,16 +77,44 @@ class OscarAlhoBot(commands.Bot):
                     self.catalog,
                     self.db,
                     self.trello,
+                    self.cfg.kick_channel_slug,
                 )
                 await self.telegram.start()
             except Exception as e:  # noqa: BLE001
                 log.warning("Ponte Telegram desativada: %s", e)
                 self.telegram = None
 
+        if self.cfg.kick_client_id and self.cfg.kick_client_secret and self.cfg.kick_channel_slug:
+            try:
+                from kick_client import KickClient
+
+                self.kick = KickClient(
+                    self.cfg.kick_client_id,
+                    self.cfg.kick_client_secret,
+                    self.cfg.kick_channel_slug,
+                    self.cfg.kick_refresh_token,
+                    self.db,
+                )
+                if await self.kick._ensure():
+                    log.info("Cliente Kick pronto (canal %s).", self.cfg.kick_channel_slug)
+                else:
+                    log.warning("Kick: não consegui obter token (refresh inválido?).")
+            except Exception as e:  # noqa: BLE001
+                log.warning("Cliente Kick desativado: %s", e)
+                self.kick = None
+
     async def notify_telegram(self, texto: str, foto: bytes | None = None) -> None:
         """Espelha um anúncio no Telegram, se a ponte estiver ativa."""
         if self.telegram is not None:
             await self.telegram.anunciar(texto, foto)
+
+    async def notify_kick(self, texto: str) -> None:
+        """Posta um anúncio no chat da Kick, se o cliente estiver ativo."""
+        if self.kick is not None:
+            try:
+                await self.kick.enviar(texto)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Falha ao postar na Kick: %s", e)
 
     async def announce_targets(self) -> list[tuple[int, "discord.abc.Messageable"]]:
         """Canais onde postar anúncios/lembretes: (guild_id, canal).
@@ -113,6 +142,8 @@ class OscarAlhoBot(commands.Bot):
         # encerra o gateway e as tarefas/cogs primeiro, depois os recursos
         if self.telegram is not None:
             await self.telegram.stop()
+        if self.kick is not None:
+            await self.kick.close()
         await super().close()
         await self.trello.close()
         await self.db.close()

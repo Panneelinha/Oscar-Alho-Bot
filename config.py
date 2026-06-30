@@ -34,6 +34,10 @@ class Config:
     telegram_token: str            # token do bot do Telegram ("" = desligado)
     telegram_allowed_ids: frozenset[int]  # IDs do Telegram autorizados (admins/você)
     telegram_chat_id: int | None   # chat onde postar os anúncios espelhados
+    kick_channel_slug: str         # canal na Kick (ex.: "panneelinha"), "" = sem Kick
+    kick_client_id: str            # app da Kick
+    kick_client_secret: str
+    kick_refresh_token: str        # refresh token OAuth (semente; rotaciona no DB)
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -75,4 +79,8 @@ class Config:
                 if x.strip().isdigit()
             ),
             telegram_chat_id=_int("TELEGRAM_CHAT_ID"),
+            kick_channel_slug=os.getenv("KICK_CHANNEL_SLUG", "").strip().lstrip("@/"),
+            kick_client_id=os.getenv("KICK_CLIENT_ID", "").strip(),
+            kick_client_secret=os.getenv("KICK_CLIENT_SECRET", "").strip(),
+            kick_refresh_token=os.getenv("KICK_REFRESH_TOKEN", "").strip(),
         )

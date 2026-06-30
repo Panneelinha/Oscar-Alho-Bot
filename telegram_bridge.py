@@ -20,12 +20,13 @@ def _esc(s: object) -> str:
 
 
 class TelegramBridge:
-    def __init__(self, token, allowed_ids, chat_id, catalog, db, trello) -> None:
+    def __init__(self, token, allowed_ids, chat_id, catalog, db, trello, kick_slug="") -> None:
         self.allowed = set(allowed_ids)
         self.chat_id = chat_id
         self.catalog = catalog
         self.db = db
         self.trello = trello
+        self.kick_url = f"https://kick.com/{kick_slug}" if kick_slug else None
         self.app = Application.builder().token(token).build()
         cmds = {
             "start": self.cmd_ajuda,
@@ -140,6 +141,8 @@ class TelegramBridge:
         for f in s.filmes:
             extra = f" — IMDb {_esc(f.imdb_nota)}" if f.imdb_nota else ""
             linhas.append(f"• {_esc(f.name)}{extra}")
+        if self.kick_url:
+            linhas.append(f"🔴 Ao vivo na Kick: {self.kick_url}")
         await update.message.reply_text("\n".join(linhas), parse_mode="HTML")
 
     async def cmd_filme(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

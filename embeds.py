@@ -305,7 +305,9 @@ def filme_resumo_embed(mv: Movie, poster_url: str | None = None) -> discord.Embe
     return embed
 
 
-def proxima_sessao_embed(sessao: Sessao, counts: dict[str, int]) -> discord.Embed:
+def proxima_sessao_embed(
+    sessao: Sessao, counts: dict[str, int], kick_url: str | None = None
+) -> discord.Embed:
     embed = discord.Embed(title="🎬 Próxima sessão do Oscar Alho", color=COR)
     embed.add_field(name="Programação", value=f"**{sessao.titulo}**", inline=False)
     if sessao.epoch:
@@ -318,6 +320,8 @@ def proxima_sessao_embed(sessao: Sessao, counts: dict[str, int]) -> discord.Embe
         embed.add_field(name="Quando", value=sessao.data_str, inline=False)
     if sessao.status:
         embed.add_field(name="Status", value=sessao.status, inline=False)
+    if kick_url:
+        embed.add_field(name="🔴 Transmissão", value=f"Ao vivo na Kick: {kick_url}", inline=False)
     embed.add_field(name="Presença", value=_linha_rsvp(counts), inline=False)
     embed.set_footer(text="Confirme sua presença nos botões abaixo 👇")
     return embed

@@ -52,7 +52,8 @@ EVENT_LEMBRETE = "lembrete"
 EVENT_POS = "pos_sessao"
 EVENT_EVENTO = "evento_discord"
 EVENT_ANUNCIO = "anuncio_sessao"
-TG_GUILD = 0  # "servidor" lógico para deduplicar anúncios no Telegram
+TG_GUILD = 0    # "servidor" lógico para deduplicar anúncios no Telegram
+KICK_GUILD = -1  # idem para a Kick
 
 
 def _is_admin(interaction: discord.Interaction) -> bool:
@@ -96,7 +97,7 @@ class Sessoes(commands.Cog):
             if sessao.chave
             else {"vou": 0, "talvez": 0, "nao": 0}
         )
-        lista_embeds = [embeds.proxima_sessao_embed(sessao, counts)]
+        lista_embeds = [embeds.proxima_sessao_embed(sessao, counts, self._kick_url())]
         files = []
         for f in sessao.filmes[:4]:
             poster_url = None
@@ -163,6 +164,7 @@ class Sessoes(commands.Cog):
             for gid, _c in targets
         }
         baseline_tg = await self.bot.db.announced_count(EVENT_ANUNCIO, TG_GUILD) == 0
+        baseline_kick = await self.bot.db.announced_count(EVENT_ANUNCIO, KICK_GUILD) == 0
 
         for s in sessoes:
             if not s.dt or not s.chave:
@@ -188,6 +190,13 @@ class Sessoes(commands.Cog):
                     if not baseline_tg:
                         await self.bot.notify_telegram(self._texto_sessao("📢 Sessão confirmada!", s))
                     await self.bot.db.mark_announced(s.chave, EVENT_ANUNCIO, TG_GUILD)
+                # espelha no chat da Kick (1x)
+                if self.bot.kick is not None and not await self.bot.db.already_announced(
+                    s.chave, EVENT_ANUNCIO, KICK_GUILD
+                ):
+                    if not baseline_kick:
+                        await self.bot.notify_kick(self._texto_kick("🎬 Sessão confirmada:", s))
+                    await self.bot.db.mark_announced(s.chave, EVENT_ANUNCIO, KICK_GUILD)
             lembrar = timedelta(0) <= (s.dt - agora) <= janela
             fim = s.dt + timedelta(hours=4)
             avaliar = timedelta(0) <= (agora - fim) <= timedelta(hours=24)
@@ -206,6 +215,12 @@ class Sessoes(commands.Cog):
             ):
                 await self.bot.notify_telegram(self._texto_sessao("🔔 Lembrete de sessão!", s))
                 await self.bot.db.mark_announced(s.chave, EVENT_LEMBRETE, TG_GUILD)
+            # espelha o lembrete na Kick (1x)
+            if lembrar and self.bot.kick is not None and not await self.bot.db.already_announced(
+                s.chave, EVENT_LEMBRETE, KICK_GUILD
+            ):
+                await self.bot.notify_kick(self._texto_kick("🔔 Sessão chegando:", s))
+                await self.bot.db.mark_announced(s.chave, EVENT_LEMBRETE, KICK_GUILD)
 
         # reanúncio periódico da próxima sessão (a cada N dias, por servidor)
         proxima = next((s for s in sessoes if s.dt and s.chave and s.dt > agora), None)
@@ -226,10 +241,19 @@ class Sessoes(commands.Cog):
                     await self._anunciar_sessao(canal, proxima, "📅 Lembrete da programação")
                     await self.bot.db.set_setting(f"last_anuncio:{gid}", agora.isoformat())
 
+    def _kick_url(self) -> str | None:
+        slug = self.bot.cfg.kick_channel_slug
+        return f"https://kick.com/{slug}" if slug else None
+
+    def _texto_kick(self, titulo: str, s) -> str:
+        return f"{titulo} {s.titulo} — {s.quando}"
+
     def _texto_sessao(self, titulo: str, s) -> str:
         linhas = [f"<b>{html.escape(titulo)}</b>", f"🎬 {html.escape(s.titulo)}", f"📅 {html.escape(s.quando)}"]
         if s.status:
             linhas.append(f"<i>{html.escape(s.status)}</i>")
+        if self._kick_url():
+            linhas.append(f"🔴 Ao vivo na Kick: {self._kick_url()}")
         return "\n".join(linhas)
 
     async def _anunciar_sessao(self, canal, s, titulo: str) -> None:
@@ -238,7 +262,7 @@ class Sessoes(commands.Cog):
             if s.chave
             else {"vou": 0, "talvez": 0, "nao": 0}
         )
-        embed = embeds.proxima_sessao_embed(s, counts)
+        embed = embeds.proxima_sessao_embed(s, counts, self._kick_url())
         embed.title = titulo
         view = rsvp_view(s.chave) if s.chave else None
         try:
@@ -248,7 +272,7 @@ class Sessoes(commands.Cog):
 
     async def _postar_lembrete(self, canal, s) -> None:
         counts = await self.bot.db.rsvp_counts(s.chave)
-        embed = embeds.proxima_sessao_embed(s, counts)
+        embed = embeds.proxima_sessao_embed(s, counts, self._kick_url())
         embed.title = "🔔 Lembrete de sessão!"
         role = self.bot.cfg.lembrete_role_id
         content = f"<@&{role}> " if role else ""
@@ -404,6 +428,8 @@ class Sessoes(commands.Cog):
                 await self.bot.db.mark_announced(proxima.chave, EVENT_ANUNCIO, gid)
             await self.bot.notify_telegram(self._texto_sessao("🎬 E a próxima sessão é…", proxima))
             await self.bot.db.mark_announced(proxima.chave, EVENT_ANUNCIO, TG_GUILD)
+            await self.bot.notify_kick(self._texto_kick("🎬 Próxima sessão:", proxima))
+            await self.bot.db.mark_announced(proxima.chave, EVENT_ANUNCIO, KICK_GUILD)
             anunciou_proxima = True
         msg = f"✅ Sessão **{s.titulo}** marcada como **realizada** ({data})."
         msg += f"\n📝 {atualizados} card(s) atualizados no Trello."

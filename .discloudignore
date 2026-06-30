@@ -11,4 +11,5 @@ test_parser.py
 README.md
 DEPLOY.md
 start.bat
+atualizar_token_kick.py
 outputs/

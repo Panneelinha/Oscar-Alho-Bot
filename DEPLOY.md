@@ -62,6 +62,28 @@ Duas opções (escolha uma):
 
 ---
 
-## Importante: não rode dois ao mesmo tempo
-Se o bot estiver rodando no PC **e** no Discloud com o **mesmo token**, ele responde
-**em dobro**. Quando migrar pro Discloud, **desligue o do PC** (feche o `start.bat`).
+## Telegram e Kick (opcionais)
+Se você usa as pontes, inclua no `.env` (ou no painel de variáveis do Discloud):
+- **Telegram:** `TELEGRAM_TOKEN`, `TELEGRAM_ALLOWED_IDS`, `TELEGRAM_CHAT_ID`.
+- **Kick:** `KICK_CHANNEL_SLUG`, `KICK_CLIENT_ID`, `KICK_CLIENT_SECRET`, `KICK_REFRESH_TOKEN`.
+
+### ⚠️ Token da Kick antes de subir
+A Kick **rotaciona** o refresh token, e o válido fica no banco. Como o banco do
+Discloud começa vazio, o `.env` precisa de um token **válido** na hora do upload.
+Então, **antes de empacotar**:
+1. **Desligue o bot** (feche o `start.bat`).
+2. Rode: `python atualizar_token_kick.py` (copia o token válido do banco para o `.env`).
+3. Aí sim gere o `.zip` e suba.
+
+## Importante: não rode duas instâncias ao mesmo tempo
+Com o **mesmo token** rodando no PC **e** no Discloud:
+- o Discord responde **em dobro**;
+- a **Kick** quebra (cada instância rotaciona o refresh token e **invalida o da outra**).
+
+Então, ao migrar pro Discloud, **desligue o do PC** (feche o `start.bat`) e rode só lá.
+
+## Kick mão-dupla (comandos no chat) — depois do deploy
+Hoje o bot **posta** na Kick (mão-única). Para **ler comandos** (`!programacao`) do
+chat, a Kick exige **webhook** (URL pública) + escopo `events:subscribe`. Isso a
+gente configura **depois** que o bot estiver no Discloud (que fornece o endereço
+público) — me avise quando estiver lá.
