@@ -104,13 +104,15 @@ class OscarAlhoBot(commands.Bot):
                 log.warning("Cliente Kick desativado: %s", e)
                 self.kick = None
 
+        if self.kick is not None and not self.cfg.kick_chatroom_id:
+            log.warning("Kick: KICK_CHATROOM_ID não definido — leitor de chat DESLIGADO.")
         if self.kick is not None and self.cfg.kick_chatroom_id:
             try:
                 from kick_chat import KickChatListener
 
                 self.kick_chat = KickChatListener(self, self.cfg.kick_chatroom_id)
                 self.kick_chat.start()
-                log.info("Leitor do chat da Kick iniciado.")
+                log.info("Leitor do chat da Kick iniciado (chatroom %s).", self.cfg.kick_chatroom_id)
             except Exception as e:  # noqa: BLE001
                 log.warning("Leitor da Kick desativado: %s", e)
                 self.kick_chat = None
