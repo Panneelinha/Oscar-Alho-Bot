@@ -119,3 +119,14 @@ versão de SDK num processo que roda 24/7.
 - O parser entende o padrão dos seus cards (`Estreia`, `Streaming: X — data`, `Duração`,
   bloco `## IMDb`). Cards sem esses campos simplesmente exibem menos informação.
 - Os votos são por usuário do Discord e ficam em `oscar_alho.sqlite3` (local).
+## Site + Supabase
+
+A ponte opcional `cogs/site_sync.py` consome a outbox criada pela migration do site e sincroniza comentários, votos e presenças com os cards do Trello. Para ativar no ambiente privado do bot:
+
+```env
+SUPABASE_URL=https://SEU-PROJETO.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
+SUPABASE_POLL_SECONDS=30
+```
+
+A `SUPABASE_SECRET_KEY` fica somente no bot. Não coloque essa chave no site, no Git ou em mensagens públicas. Quando as variáveis não existem, a ponte permanece desligada e o restante do bot funciona normalmente.
