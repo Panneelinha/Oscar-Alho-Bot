@@ -75,6 +75,26 @@ class SiteSync(commands.Cog):
             await self.bot.trello.update_card_desc(card_id, new_desc)
             movie.desc = new_desc
 
+    async def _handle_nomination(self, event: dict, payload: dict) -> None:
+        card_id = str(payload.get("movie_id", ""))
+        category = str(payload.get("category", "")).strip()
+        justification = str(payload.get("justification", "")).strip()
+        if not card_id or not category or not justification:
+            raise ValueError("indicação sem movie_id/categoria/justificativa")
+        marker = f"[site-event:{event['id']}]"
+        if await self._already_commented(card_id, marker):
+            return
+        author = await self._profile_name(payload)
+        prefix = (
+            "🚫 Indicação para FORA DA PREMIAÇÃO (via site)"
+            if category == "FORA DA PREMIAÇÃO"
+            else f"🏆 Indicação (via site) — Categoria: {category}"
+        )
+        await self.bot.trello.add_comment(
+            card_id,
+            f"{prefix}\nAutor: {author}\nJustificativa: {justification}\n\n{marker}",
+        )
+
     async def _handle_rsvp(self, event: dict, payload: dict) -> None:
         card_id = str(payload.get("movie_id", ""))
         if not card_id:
@@ -99,6 +119,8 @@ class SiteSync(commands.Cog):
             await self._handle_vote(payload)
         elif event_type == "rsvp.changed":
             await self._handle_rsvp(event, payload)
+        elif event_type == "nomination.created":
+            await self._handle_nomination(event, payload)
         else:
             raise ValueError(f"tipo de evento desconhecido: {event_type}")
 
