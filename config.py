@@ -39,6 +39,9 @@ class Config:
     kick_client_secret: str
     kick_refresh_token: str        # refresh token OAuth (semente; rotaciona no DB)
     kick_chatroom_id: int          # id do chatroom (pro websocket de leitura), 0 = sem leitura
+    supabase_url: str              # projeto Supabase do site (vazio = ponte desligada)
+    supabase_service_role_key: str # chave secreta do servidor; nunca expor no navegador
+    supabase_poll_seconds: int     # intervalo da fila Site → Trello
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -57,6 +60,7 @@ class Config:
         lembrete = os.getenv("LEMBRETE_HORAS", "3").strip()
         sync_hour = os.getenv("TRELLO_SYNC_HOUR", "23").strip()
         mode = os.getenv("VOTE_SYNC_MODE", "desc").strip().lower()
+        supabase_poll = os.getenv("SUPABASE_POLL_SECONDS", "30").strip()
         if mode not in ("desc", "comment", "off"):
             mode = "desc"
         return cls(
@@ -85,4 +89,10 @@ class Config:
             kick_client_secret=os.getenv("KICK_CLIENT_SECRET", "").strip(),
             kick_refresh_token=os.getenv("KICK_REFRESH_TOKEN", "").strip(),
             kick_chatroom_id=_int("KICK_CHATROOM_ID") or 0,
+            supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
+            supabase_service_role_key=(
+                os.getenv("SUPABASE_SECRET_KEY", "").strip()
+                or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+            ),
+            supabase_poll_seconds=int(supabase_poll) if supabase_poll.isdigit() and int(supabase_poll) >= 10 else 30,
         )
