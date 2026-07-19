@@ -14,6 +14,7 @@ from catalog import Catalog
 from config import Config
 from db import Database
 from trello_client import TrelloClient
+from supabase_client import SupabaseSyncClient
 from ui import InteragirButton, RSVPButton
 
 logging.basicConfig(
@@ -38,6 +39,7 @@ COGS = [
     "cogs.admin",
     "cogs.anuncios",
     "cogs.trello_sync",
+    "cogs.site_sync",
 ]
 
 
@@ -47,6 +49,11 @@ class OscarAlhoBot(commands.Bot):
         self.cfg = cfg
         self.trello = TrelloClient(cfg.trello_key, cfg.trello_token, cfg.trello_board_id)
         self.catalog = Catalog(self.trello)
+        self.supabase = (
+            SupabaseSyncClient(cfg.supabase_url, cfg.supabase_service_role_key)
+            if cfg.supabase_url and cfg.supabase_service_role_key
+            else None
+        )
         self.db = Database(cfg.db_path)
         self.telegram = None   # ponte opcional (telegram_bridge.TelegramBridge)
         self.kick = None       # cliente opcional da Kick (kick_client.KickClient)
@@ -162,6 +169,8 @@ class OscarAlhoBot(commands.Bot):
             await self.kick.close()
         await super().close()
         await self.trello.close()
+        if self.supabase is not None:
+            await self.supabase.close()
         await self.db.close()
 
 
