@@ -77,7 +77,7 @@ class TrelloClient:
         await self._request("POST", f"/cards/{card_id}/actions/comments", text=text)
 
     async def get_card_attachments(self, card_id: str) -> list[dict]:
-        data = await self._get(f"/cards/{card_id}/attachments", fields="name,url,mimeType")
+        data = await self._get(f"/cards/{card_id}/attachments", fields="id,name,url,mimeType,date")
         return data if isinstance(data, list) else []
 
     async def get_card_comments(self, card_id: str, limit: int = 20) -> list[str]:
