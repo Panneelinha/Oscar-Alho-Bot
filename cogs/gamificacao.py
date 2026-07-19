@@ -68,9 +68,15 @@ class Gamificacao(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
-    async def _pontuacao(self) -> dict[int, tuple[int, dict[str, int], int]]:
-        """{user_id: (pontos, breakdown, acertos_bolao)}."""
+    async def _pontuacao(self, include_site: bool = True) -> dict[int, dict]:
+        """Calcula pontos do bot e, opcionalmente, soma os pontos ganhos no site."""
         counts = await self.bot.db.participation_counts()
+        site_points: dict[int, int] = {}
+        if include_site and getattr(self.bot, "supabase", None):
+            try:
+                site_points = await self.bot.supabase.site_points_by_discord()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Não foi possível carregar os pontos do site: %s", exc)
         # acertos no bolão (vencedores travados pela cédula final)
         winners: dict[str, str] = {}
         for cat in await self.bot.db.finalists_categories():
@@ -84,18 +90,20 @@ class Gamificacao(commands.Cog):
         voz = await self.bot.db.voice_points_per_user()
         voz_secs = await self.bot.db.voice_seconds_per_user()
         out: dict[int, dict] = {}
-        uids = set(counts) | set(acertos) | set(voz)
+        uids = set(counts) | set(acertos) | set(voz) | set(site_points)
         for uid in uids:
             d = counts.get(uid, {})
             pontos = sum(d.get(k, 0) * PESOS[k] for k in PESOS)
             pontos += acertos.get(uid, 0) * PESO_ACERTO_BOLAO
             pontos += voz.get(uid, 0)
+            pontos += site_points.get(uid, 0)
             out[uid] = {
                 "pontos": pontos,
                 "breakdown": d,
                 "acertos": acertos.get(uid, 0),
                 "voz_pontos": voz.get(uid, 0),
                 "voz_secs": voz_secs.get(uid, 0),
+                "site_points": site_points.get(uid, 0),
             }
         return out
 
@@ -123,7 +131,14 @@ class Gamificacao(commands.Cog):
         pont = await self._pontuacao()
         info = pont.get(
             alvo.id,
-            {"pontos": 0, "breakdown": {}, "acertos": 0, "voz_pontos": 0, "voz_secs": 0},
+            {
+                "pontos": 0,
+                "breakdown": {},
+                "acertos": 0,
+                "voz_pontos": 0,
+                "voz_secs": 0,
+                "site_points": 0,
+            },
         )
         pontos, breakdown, acertos = info["pontos"], info["breakdown"], info["acertos"]
         titulo, falta, prox = nivel_de(pontos)
@@ -145,6 +160,8 @@ class Gamificacao(commands.Cog):
             linhas.append(f"🎯 Acertos no bolão: {acertos} (+{acertos * PESO_ACERTO_BOLAO})")
         if info["voz_pontos"]:
             linhas.append(f"🎙️ Tempo na call: {info['voz_secs'] // 60} min (+{info['voz_pontos']})")
+        if info["site_points"]:
+            linhas.append(f"🌐 Participação no site: +{info['site_points']}")
         embed.add_field(
             name="Participação",
             value="\n".join(linhas) or "_Ainda sem participação. Bora começar!_",
@@ -228,7 +245,8 @@ class Gamificacao(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         pont = await self._pontuacao()
         aplicados = 0
-        for uid, (pontos, _d, _a) in pont.items():
+        for uid, info in pont.items():
+            pontos = info["pontos"]
             if pontos <= 0:
                 continue
             membro = interaction.guild.get_member(uid)
