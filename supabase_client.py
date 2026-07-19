@@ -69,6 +69,28 @@ class SupabaseSyncClient:
         )
         return int(data or 0)
 
+    async def site_points_by_discord(self) -> dict[int, int]:
+        data = await self._request("POST", "/rpc/get_site_points_for_bot", json={})
+        if not isinstance(data, list):
+            return {}
+        points: dict[int, int] = {}
+        for row in data:
+            try:
+                points[int(row["discord_user_id"])] = int(row.get("site_points") or 0)
+            except (KeyError, TypeError, ValueError):
+                continue
+        return points
+
+    async def set_bot_points(self, discord_user_id: str, points: int) -> None:
+        await self._request(
+            "POST",
+            "/rpc/set_bot_points",
+            json={
+                "target_discord_user_id": discord_user_id,
+                "target_points": max(0, int(points)),
+            },
+        )
+
     async def mark_processed(self, event_id: int) -> None:
         await self._request(
             "PATCH",
