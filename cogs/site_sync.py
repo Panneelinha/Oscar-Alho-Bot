@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import datetime, timezone
 
 from discord.ext import commands, tasks
@@ -28,6 +29,7 @@ class SiteSync(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.enabled = bool(getattr(bot, "supabase", None))
+        self._last_points_sync = 0.0
         self.consume.change_interval(seconds=bot.cfg.supabase_poll_seconds)
 
     async def cog_load(self) -> None:
@@ -110,6 +112,20 @@ class SiteSync(commands.Cog):
             f"📅 Site Oscar Alho — {author} {status}.\n\n{marker}",
         )
 
+    async def _sync_bot_points(self) -> None:
+        gamificacao = self.bot.get_cog("Gamificacao")
+        if gamificacao is None:
+            return
+        bot_totals = await gamificacao._pontuacao(include_site=False)
+        known_profiles = await self.bot.supabase.site_points_by_discord()
+        user_ids = set(known_profiles) | set(bot_totals)
+        for user_id in user_ids:
+            info = bot_totals.get(user_id, {})
+            await self.bot.supabase.set_bot_points(
+                str(user_id), int(info.get("pontos", 0))
+            )
+        log.info("Pontuação bot + site sincronizada para %s membro(s).", len(user_ids))
+
     async def _handle(self, event: dict) -> None:
         payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
         event_type = event.get("event_type")
@@ -141,6 +157,14 @@ class SiteSync(commands.Cog):
                     )
                 except Exception as mark_exc:  # noqa: BLE001
                     log.error("Falha ao devolver evento %s para retry: %s", event.get("id"), mark_exc)
+
+        now = time.monotonic()
+        if now - self._last_points_sync >= 300:
+            try:
+                await self._sync_bot_points()
+                self._last_points_sync = now
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Falha ao sincronizar pontuação bot + site: %s", exc)
 
     @consume.before_loop
     async def _before_consume(self) -> None:
