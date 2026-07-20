@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oscaralho — Cineclube da Panneelinha</title>
+  <meta name="description" content="Filmes ruins. Horriveis. Um espanto. Faz mal." />
+  <meta property="og:title" content="Oscaralho — Cineclube da Panneelinha" />
+  <meta property="og:description" content="Catálogo, próximas sessões, votos e conversas do clube." />
+  <meta property="og:image" content="https://panneelinha.github.io/Oscar-Alho-Bot/brand/oscar-alho-original.webp" />
+  <link rel="stylesheet" href="./styles-1.css?v=16" />
+  <link rel="stylesheet" href="./styles-2.css?v=16" />
+  <link rel="stylesheet" href="./styles-3.css?v=16" />
+  <link rel="stylesheet" href="./styles-4.css?v=16" />
+  <script type="module" src="./app.js?v=16"></script>
+</head>
+<body>
+<main>
+  <header class="topbar">
+    <a class="wordmark" href="#inicio" aria-label="Oscaralho — início">
+      <span class="wordmark-mark"><img src="./brand/oscaralho-alho.webp" alt="" /></span>
+      <span><strong>Oscaralho</strong><small>Filmes ruins. Horriveis. Um espanto. Faz mal.</small></span>
+    </a>
+    <nav aria-label="Navegação principal">
+      <a href="#inicio">Início</a>
+      <a href="#sessoes">Sessões</a>
+      <a href="#franquias">Franquias</a>
+      <a href="#catalogo">Catálogo</a>
+      <a href="#ranking">Ranking</a>
+      <a href="#clube">Clube</a>
+    </nav>
+    <label class="header-search">
+      <span class="sr-only">Buscar no catálogo</span>
+      <input id="search" type="search" placeholder="Buscar filmes, franquias..." autocomplete="off" />
+    </label>
+    <button class="discord-login" id="discord-login" type="button">
+      <span>Entrar com Discord</span>
+    </button>
+  </header>
+
+  <section class="hero-shell" id="inicio">
+    <img class="garlic-watermark" src="./brand/oscar-alho-original.webp" alt="" />
+    <div class="featured-poster-wrap">
+      <img id="featured-poster" class="featured-poster" src="./poster-fallback.webp" alt="" />
+    </div>
+    <section class="session-hero" aria-labelledby="featured-title">
+      <div class="featured-copy">
+        <p class="eyebrow">Próxima sessão</p>
+        <p class="session-status" id="featured-status">Programação do clube</p>
+        <h1 id="featured-title">Carregando a próxima sessão</h1>
+        <p class="featured-synopsis" id="featured-synopsis">A programação vem diretamente do board do Oscaralho.</p>
+        <div class="featured-meta" id="featured-meta"></div>
+        <div class="featured-actions">
+          <button class="primary-button" id="rsvp-button" type="button">Eu vou</button>
+          <button class="secondary-button" id="featured-details" type="button">Abrir ficha completa</button>
+        </div>
+        <nav class="featured-carousel-controls" id="featured-carousel-controls" aria-label="Filmes agendados" hidden>
+          <button type="button" id="featured-prev">Anterior</button>
+          <span id="featured-position" aria-live="polite">1 de 1</span>
+          <button type="button" id="featured-next">Próximo</button>
+        </nav>
+      </div>
+      <img class="hero-emote" src="./brand/panneelinha-cineasta-panela.webp" alt="Panneelinha cineasta com sua panela na cabeça, óculos escuros, câmera e claquete" />
+    </section>
+  </section>
+
+  <section class="live-strip" aria-label="Onde acompanhar a Panneelinha">
+    <p>O cineclube acontece com a comunidade da Panneelinha</p>
+    <div>
+      <a href="https://www.twitch.tv/panneelinha" target="_blank" rel="noreferrer">Twitch</a>
+      <a href="https://kick.com/panneelinha" target="_blank" rel="noreferrer">Kick</a>
+      <a href="https://discord.gg/zdxTPpuvaq" target="_blank" rel="noreferrer">Discord</a>
+    </div>
+  </section>
+
+  <section class="schedule" id="sessoes" aria-labelledby="schedule-title">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Agenda do clube</p>
+        <h2 id="schedule-title">Próximas sessões</h2>
+      </div>
+      <p>Datas, horários e programação sincronizados com os cards do Trello.</p>
+    </div>
+    <div class="schedule-grid" id="schedule-grid"></div>
+  </section>
+
+
+  <section class="catalog" id="catalogo" aria-labelledby="catalog-title">
+    <div class="catalog-heading">
+      <div>
+        <p class="eyebrow">Acervo completo</p>
+        <h2 id="catalog-title">Catálogo de filmes</h2>
+      </div>
+      <p class="catalog-hint">Filmes, franquias, gêneros e plataformas em um só lugar.</p>
+    </div>
+    <div class="filter-row" id="filter-row" role="group" aria-label="Filtros do catálogo"></div>
+    <div class="catalog-toolbar">
+      <p><strong id="result-count">0</strong> <span id="result-label">filmes encontrados</span></p>
+      <label><span>Coleção</span><select id="list-filter"><option value="all">Todas as coleções</option></select></label>
+    </div>
+    <img class="section-emote section-emote-banana" src="./brand/panelinha-banana-transparente.webp" alt="Panneelinha vestida de banana" />
+    <div class="movie-grid" id="movie-grid"></div>
+    <p class="empty" id="empty" hidden>Nenhum filme apareceu com esses filtros.</p>
+  </section>
+
+  <section class="franchises" id="franquias" aria-labelledby="franchise-title">
+    <div class="section-heading compact">
+      <div>
+        <p class="eyebrow">Universos para maratonar</p>
+        <h2 id="franchise-title">Franquias em destaque</h2>
+      </div>
+      <p>Abra uma franquia para ver a ordem dos filmes disponíveis no catálogo.</p>
+    </div>
+    <img class="section-emote section-emote-love" src="./brand/oscaralho-alho.webp" alt="" />
+    <div class="franchise-rail" id="franchise-rail"></div>
+  </section>
+  <section class="ranking" id="ranking" aria-labelledby="ranking-title">
+    <div class="section-heading compact">
+      <div>
+        <p class="eyebrow">Temporada da comunidade</p>
+        <h2 id="ranking-title">Ranking do clube</h2>
+      </div>
+      <p>Votos, presenças, indicações e comentários valem pontos. Continue participando para conquistar novos cargos.</p>
+    </div>
+    <div class="points-guide" aria-label="Como ganhar pontos">
+      <span><b>+1</b> voto</span><span><b>+2</b> presença</span><span><b>+3</b> indicação</span><span><b>+4</b> comentário</span>
+    </div>
+    <div class="ranking-board" id="ranking-board"><p class="ranking-empty">Carregando a classificação...</p></div>
+  </section>
+  <section class="club-note" id="clube">
+    <img src="./brand/emote-agua.webp" alt="Panneelinha com um megafone" />
+    <div>
+      <p class="eyebrow">Uma comunidade, três palcos</p>
+      <h2>Assista, vote e converse com o clube.</h2>
+      <p>Entre com o Discord para votar, comentar, indicar filmes, confirmar presença e acompanhar seus pontos no clube.</p>
+    </div>
+    <div class="club-links">
+      <a href="https://discord.gg/zdxTPpuvaq" target="_blank" rel="noreferrer">Entrar no Discord</a>
+      <a href="https://kick.com/panneelinha" target="_blank" rel="noreferrer">Assistir na Kick</a>
+      <a href="https://www.twitch.tv/panneelinha" target="_blank" rel="noreferrer">Seguir na Twitch</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>Oscaralho × Panneelinha</span>
+    <p id="updated-at">Catálogo completo</p>
+    <img src="./brand/oscaralho-alho.webp" alt="" />
+  </footer>
+
+  <button class="toast" id="toast" type="button" hidden><span></span><b>Fechar</b></button>
+</main>
+
+<div class="modal-backdrop" id="modal" role="presentation" hidden>
+  <aside class="movie-modal" role="dialog" aria-modal="true" aria-labelledby="movie-modal-title">
+    <header class="modal-header">
+      <div><p class="eyebrow" id="modal-status"></p><p id="modal-list"></p></div>
+      <button class="modal-close" id="modal-close" type="button" aria-label="Fechar detalhes">Fechar</button>
+    </header>
+    <section class="modal-summary">
+      <img id="modal-poster" alt="" />
+      <div>
+        <h2 id="movie-modal-title"></h2>
+        <p class="modal-original-title" id="modal-original-title"></p>
+        <div class="chip-row" id="modal-chips"></div>
+        <div class="modal-actions">
+          <button class="primary-button" id="modal-vote" type="button">Quero ver</button>
+          <button class="nominate-button" id="open-nomination" type="button" hidden>Indicar a prêmio</button>
+          <a id="modal-imdb" target="_blank" rel="noreferrer">Abrir no IMDb</a>
+        </div>
+      </div>
+    </section>
+
+    <dl class="modal-meta" id="modal-meta"></dl>
+
+    <section class="modal-section">
+      <p class="eyebrow">Sinopse</p>
+      <p class="synopsis" id="modal-synopsis"></p>
+      <a id="modal-trailer" class="text-link" target="_blank" rel="noreferrer" hidden>Assistir ao trailer</a>
+    </section>
+
+    <section class="modal-section" id="franchise-section" hidden>
+      <div class="modal-section-title"><div><p class="eyebrow">Franquia</p><h3 id="modal-franchise-name"></h3></div><span id="modal-franchise-position"></span></div>
+      <div class="franchise-sequence" id="franchise-sequence"></div>
+    </section>
+
+    <section class="modal-section nomination-section" id="nomination-section" hidden>
+      <div class="modal-section-title">
+        <div><p class="eyebrow">Curadoria do Prêmio Alho</p><h3>Indicar a prêmio</h3></div>
+        <span>+3 pontos</span>
+      </div>
+      <p>Escolha uma categoria e conte por que este filme merece entrar na conversa da curadoria.</p>
+      <form id="nomination-form">
+        <label><span>Categoria</span><select id="nomination-category" required></select></label>
+        <label><span>Justificativa</span><textarea id="nomination-reason" minlength="3" maxlength="600" required placeholder="O que este filme fez tão bem — ou tão terrivelmente — nesta categoria?"></textarea></label>
+        <button class="primary-button" type="submit">Salvar indicação</button>
+      </form>
+      <p class="nomination-history" id="nomination-history"></p>
+    </section>
+    <section class="modal-section">
+      <details class="trello-details">
+        <summary>Informações completas do Trello</summary>
+        <pre id="modal-description"></pre>
+      </details>
+    </section>
+
+    <section class="discussion">
+      <div class="discussion-title">
+        <div><p class="eyebrow">Conversa do clube</p><h3>Comentários</h3></div>
+        <span id="comment-count">0 comentários</span>
+      </div>
+      <div class="auth-callout" id="comment-auth-callout">
+        Comentários são exclusivos para quem entrou com o Discord. Assim cada conversa tem nome e avatar reais do servidor.
+      </div>
+      <form id="comment-form">
+        <textarea id="comment-body" placeholder="O que você espera — ou teme — deste filme?" maxlength="600" required></textarea>
+        <button class="primary-button" type="submit">Publicar</button>
+      </form>
+      <div class="comment-list" id="comment-list"></div>
+    </section>
+  </aside>
+</div>
+</body>
+</html>
+
