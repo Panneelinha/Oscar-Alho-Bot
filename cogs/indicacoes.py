@@ -2,6 +2,8 @@
 /indicar, /quero_assistir, /ranking_quero_assistir, /minhas_indicacoes."""
 from __future__ import annotations
 
+import logging
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -9,6 +11,8 @@ from discord.ext import commands
 import embeds
 from movies import LISTA_FORA_PREMIACAO, OPCOES_INDICACAO, foi_assistido
 from ui import abrir_indicacao, registrar_quero_assistir
+
+log = logging.getLogger("oscar.indicacoes")
 
 
 def _rotulo_opcao(c: str) -> str:
@@ -105,10 +109,23 @@ class Indicacoes(commands.Cog):
             embed=embeds.consenso_categoria_embed(alvo, rows, amostras)
         )
 
-    @app_commands.command(name="ranking_quero_assistir", description="Filmes mais pedidos para assistir logo.")
+    @app_commands.command(name="ranking_quero_assistir", description="Filmes com maior interesse do público.")
     async def ranking_quero_assistir(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
-        rows = await self.bot.db.want_ranking(limit=15)
+        rows: list[tuple[str, str, int]] = []
+        supabase = getattr(self.bot, "supabase", None)
+        if supabase is not None:
+            try:
+                combined = await supabase.movie_interest_ranking(limit=15)
+                for row in combined:
+                    card_id = str(row.get("movie_id", ""))
+                    mv = await self.bot.catalog.por_id(card_id)
+                    if mv is not None and not foi_assistido(mv.list_name):
+                        rows.append((card_id, mv.name, int(row.get("interest_count") or 0)))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Falha ao carregar ranking combinado de interesse: %s", exc)
+        if not rows:
+            rows = await self.bot.db.want_ranking(limit=15)
         await interaction.followup.send(embed=embeds.want_ranking_embed(rows))
 
     @app_commands.command(name="minhas_indicacoes", description="Veja as indicações que você fez.")
