@@ -63,11 +63,56 @@ class SupabaseSyncClient:
         )
         return data[0] if isinstance(data, list) and data else {}
 
-    async def movie_vote_count(self, movie_id: str) -> int:
+    async def movie_interest_count(self, movie_id: str) -> int:
         data = await self._request(
-            "POST", "/rpc/get_movie_vote_count", json={"target_movie_id": movie_id}
+            "POST", "/rpc/get_movie_interest_count", json={"target_movie_id": movie_id}
         )
         return int(data or 0)
+
+    async def movie_interest_ranking(self, limit: int = 20) -> list[dict]:
+        data = await self._request(
+            "POST",
+            "/rpc/get_movie_interest_ranking",
+            json={"result_limit": max(1, min(limit, 100))},
+        )
+        return data if isinstance(data, list) else []
+
+    async def set_bot_interest_count(self, movie_id: str, count: int) -> None:
+        await self._request(
+            "POST",
+            "/rpc/set_bot_movie_interest_count",
+            json={"target_movie_id": movie_id, "target_count": max(0, int(count))},
+        )
+
+    async def movie_rating_count(self, movie_id: str) -> tuple[float | None, int]:
+        data = await self._request(
+            "POST", "/rpc/get_movie_rating_count", json={"target_movie_id": movie_id}
+        )
+        row = data[0] if isinstance(data, list) and data else {}
+        count = int(row.get("rating_count") or 0)
+        average = row.get("average_score")
+        return (float(average) if average is not None else None, count)
+
+    async def movie_rating_ranking(self, limit: int = 20) -> list[dict]:
+        data = await self._request(
+            "POST",
+            "/rpc/get_movie_rating_ranking",
+            json={"result_limit": max(1, min(limit, 100))},
+        )
+        return data if isinstance(data, list) else []
+
+    async def set_bot_rating_summary(
+        self, movie_id: str, rating_sum: int, rating_count: int
+    ) -> None:
+        await self._request(
+            "POST",
+            "/rpc/set_bot_movie_rating_summary",
+            json={
+                "target_movie_id": movie_id,
+                "target_rating_sum": max(0, int(rating_sum)),
+                "target_rating_count": max(0, int(rating_count)),
+            },
+        )
 
     async def site_points_by_discord(self) -> dict[int, int]:
         data = await self._request("POST", "/rpc/get_site_points_for_bot", json={})
