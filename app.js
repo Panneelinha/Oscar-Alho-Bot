@@ -16,7 +16,9 @@ const state = {
   user: null,
   authSubscription: null,
   nominations: [],
-  leaderboard: []
+  leaderboard: [],
+  ratings: {},
+  myRatings: {}
 };
 
 const featuredPosterPromises = new Map();
@@ -51,6 +53,8 @@ const filters = [
   { id: "streaming", label: "No streaming", test: function (movie) { return movie.list === "STREAMING - DISPONÍVEL"; } },
   { id: "soon", label: "Em breve", test: function (movie) { return movie.list === "STREAMING - EM BREVE"; } },
   { id: "watchlist", label: "A assistir", test: function (movie) { return movie.list === "FILMES A ASSISTIR"; } },
+  { id: "most-wanted", label: "Mais pedidos", test: function (movie) { return !isWatched(movie) && interestCount(movie.id) > 0; } },
+  { id: "alhometro", label: "Alhômetro", test: function (movie) { return isWatched(movie) && ratingFor(movie.id).count > 0; } },
   { id: "watched", label: "Assistidos", test: isWatched },
   { id: "pending-award", label: "Pendentes de indicação", test: function (movie) { return movie.list === "ASSISTIDOS — PENDENTE DE CATEGORIZAÇÃO"; } },
   { id: "awards", label: "Prêmio Alho", test: function (movie) { return !coreLists.has(movie.list); } }
@@ -88,6 +92,12 @@ function statusLabel(movie) {
   return movie.list;
 }
 
+function interestCount(movieId) {
+  return Number(state.votes[movieId] || 0);
+}
+function ratingFor(movieId) {
+  return state.ratings[movieId] || { average: null, count: 0 };
+}
 function isWatched(movie) {
   var list = String(movie.list || "");
   return list.startsWith("ASSISTIDOS") || ![
@@ -319,35 +329,69 @@ function visibleMovies() {
     .filter(function (movie) {
       if (!query) return true;
       return [movie.title, movie.streaming, movie.list, movie.franchise, movie.genres]
-        .concat(movie.labels || [])
-        .filter(Boolean)
-        .join(" ")
-        .toLocaleLowerCase("pt-BR")
-        .includes(query);
+        .concat(movie.labels || []).filter(Boolean).join(" ")
+        .toLocaleLowerCase("pt-BR").includes(query);
     })
-    .sort(function (a, b) { return a.listOrder - b.listOrder || a.title.localeCompare(b.title, "pt-BR"); });
+    .sort(function (a, b) {
+      if (state.filter === "most-wanted") {
+        return interestCount(b.id) - interestCount(a.id) || a.title.localeCompare(b.title, "pt-BR");
+      }
+      if (state.filter === "alhometro") {
+        var ra = ratingFor(a.id), rb = ratingFor(b.id);
+        return Number(rb.average || 0) - Number(ra.average || 0) ||
+          rb.count - ra.count || a.title.localeCompare(b.title, "pt-BR");
+      }
+      return a.listOrder - b.listOrder || a.title.localeCompare(b.title, "pt-BR");
+    });
 }
-
+function renderMostWanted() {
+  var rail = $("#most-wanted-rail");
+  if (!rail) return;
+  var movies = state.movies
+    .filter(function (movie) { return !isWatched(movie) && interestCount(movie.id) > 0; })
+    .sort(function (a, b) { return interestCount(b.id) - interestCount(a.id) || a.title.localeCompare(b.title, "pt-BR"); })
+    .slice(0, 10);
+  $("#most-wanted-empty").hidden = movies.length > 0;
+  rail.innerHTML = movies.map(function (movie, index) {
+    var count = interestCount(movie.id);
+    return '<article class="wanted-card"><button type="button" data-open="' + esc(movie.id) +
+      '" aria-label="Abrir ' + esc(movie.title) + '"><span class="wanted-position">' +
+      (index + 1) + '</span><img src="' + esc(movie.poster) +
+      '" alt="" loading="lazy" /><span class="wanted-count">🍿 ' + count +
+      '</span></button><div><h3>' + esc(movie.title) + '</h3><p>' + count +
+      (count === 1 ? ' pessoa quer assistir' : ' pessoas querem assistir') +
+      '</p></div></article>';
+  }).join("");
+  wireMovieOpeners();
+}
 function renderMovies() {
   var movies = visibleMovies();
   $("#result-count").textContent = movies.length;
   $("#result-label").textContent = movies.length === 1 ? "filme encontrado" : "filmes encontrados";
   $("#empty").hidden = movies.length !== 0;
   $("#movie-grid").innerHTML = movies.map(function (movie, index) {
-    var count = state.votes[movie.id] == null ? (movie.trelloVotes || 0) : state.votes[movie.id];
-    return '<article class="movie-card"><button class="poster-button" data-open="' + esc(movie.id) + '" aria-label="Abrir ' + esc(movie.title) + '">' +
-      '<img src="' + esc(movie.poster) + '" alt="Pôster de ' + esc(movie.title) + '" loading="' + (index < 12 ? "eager" : "lazy") + '" />' +
-      '<span class="card-status">' + esc(statusLabel(movie)) + '</span>' +
+    var count = interestCount(movie.id), rating = ratingFor(movie.id);
+    var wants = state.voted.includes(movie.id);
+    return '<article class="movie-card"><button class="poster-button" data-open="' + esc(movie.id) +
+      '" aria-label="Abrir ' + esc(movie.title) + '"><img src="' + esc(movie.poster) +
+      '" alt="Pôster de ' + esc(movie.title) + '" loading="' + (index < 12 ? "eager" : "lazy") +
+      '" /><span class="card-status">' + esc(statusLabel(movie)) + '</span>' +
+      (rating.count ? '<span class="card-alho" title="Alhômetro do clube">🧄 ' +
+        esc(Number(rating.average).toFixed(1).replace(".", ",")) + '</span>' : '') +
       (movie.imdb ? '<span class="card-rating">IMDb ' + esc(movie.imdb.replace("/10", "")) + '</span>' : "") +
-      '</button><div class="movie-copy"><p>' + esc(movie.franchise || movie.streaming || movie.list) + '</p><h3>' + esc(movie.title) + '</h3>' +
-      '<div class="movie-actions"><button data-vote="' + esc(movie.id) + '" class="' + (state.voted.includes(movie.id) ? "voted" : "") + '">' +
-      (state.voted.includes(movie.id) ? "Votado" : "Quero ver") + ' <span>' + count + '</span></button>' +
-      '<button data-comment="' + esc(movie.id) + '">' + (state.user ? "Comentar" : "Ver comentários") + '</button></div></div></article>';
+      '</button><div class="movie-copy"><p>' + esc(movie.franchise || movie.streaming || movie.list) +
+      '</p><h3>' + esc(movie.title) + '</h3><div class="movie-actions"><button data-vote="' +
+      esc(movie.id) + '" class="want-button ' + (wants ? "voted" : "") + '">' +
+      (wants ? "✓ Quero assistir" : "🍿 Quero assistir") + ' <span>' + count +
+      '</span></button><button data-comment="' + esc(movie.id) + '">' +
+      (state.user ? "Comentar" : "Ver comentários") + '</button></div></div></article>';
   }).join("");
   wireMovieOpeners();
-  $$("[data-vote]").forEach(function (button) { button.onclick = function () { toggleVote(button.dataset.vote); }; });
+  $$("[data-vote]").forEach(function (button) {
+    button.onclick = function () { toggleVote(button.dataset.vote); };
+  });
+  renderMostWanted();
 }
-
 function wireMovieOpeners() {
   $$("[data-open],[data-comment]").forEach(function (button) {
     button.onclick = function () { openMovie(button.dataset.open || button.dataset.comment); };
@@ -393,6 +437,7 @@ function openMovie(id) {
   if (movie.trailerUrl) $("#modal-trailer").href = movie.trailerUrl;
   renderFranchiseSequence(movie);
   renderNomination(movie);
+  renderRating(movie);
   updateModalVote();
   renderComments();
   $("#modal").hidden = false;
@@ -511,10 +556,89 @@ async function loadLeaderboard() {
 function updateModalVote() {
   if (!state.activeMovie) return;
   var active = state.voted.includes(state.activeMovie.id);
-  $("#modal-vote").textContent = active ? "Voto registrado" : "Quero ver";
+  var count = interestCount(state.activeMovie.id);
+  $("#modal-vote").textContent = active ? "✓ Quero assistir · " + count : "🍿 Quero assistir · " + count;
   $("#modal-vote").classList.toggle("selected", active);
 }
-
+function renderRating(movie) {
+  var section = $("#alhometro-section");
+  if (!section) return;
+  var watched = isWatched(movie);
+  section.hidden = !watched;
+  if (!watched) return;
+  var aggregate = ratingFor(movie.id);
+  var own = Number(state.myRatings[movie.id] || 0);
+  $("#alhometro-average").textContent = aggregate.count
+    ? Number(aggregate.average).toFixed(1).replace(".", ",") + "/10 · " + aggregate.count +
+      (aggregate.count === 1 ? " avaliação" : " avaliações")
+    : "Ainda sem avaliações";
+  $("#alhometro-help").textContent = state.user
+    ? (own ? "Sua nota atual é " + own + "/10. Escolha outro dente para atualizar." :
+      "Escolha de 1 a 10 dentes de alho. Sua primeira nota vale 2 pontos.")
+    : "Entre com o Discord para deixar sua nota.";
+  $("#alhometro-scale").innerHTML = Array.from({ length: 10 }, function (_unused, index) {
+    var score = index + 1;
+    return '<button type="button" data-rating="' + score + '" class="' +
+      (own === score ? 'selected' : '') + '" ' + (!state.user ? 'disabled' : '') +
+      ' aria-label="Dar nota ' + score + ' de 10"><span aria-hidden="true">🧄</span><b>' +
+      score + '</b></button>';
+  }).join("");
+  $$("[data-rating]").forEach(function (button) {
+    button.onclick = function () { submitRating(movie.id, Number(button.dataset.rating)); };
+  });
+}
+async function loadRatings() {
+  if (!state.supabase) return;
+  var aggregateResult = await state.supabase.rpc("get_movie_rating_counts");
+  if (!aggregateResult.error) {
+    state.ratings = Object.fromEntries((aggregateResult.data || []).map(function (row) {
+      return [row.movie_id, { average: Number(row.average_score), count: Number(row.rating_count) }];
+    }));
+  }
+  state.myRatings = {};
+  if (state.user) {
+    var ownResult = await state.supabase.from("movie_ratings")
+      .select("movie_id,rating").eq("user_id", state.user.id);
+    if (!ownResult.error) {
+      state.myRatings = Object.fromEntries((ownResult.data || []).map(function (row) {
+        return [row.movie_id, Number(row.rating)];
+      }));
+    }
+  }
+}
+async function submitRating(movieId, score) {
+  if (state.busy) return;
+  if (!state.supabaseConfigured || !state.user || !state.supabase) {
+    notice("Entre com o Discord para participar do Alhômetro.");
+    return;
+  }
+  var movie = state.movies.find(function (item) { return item.id === movieId; });
+  if (!movie || !isWatched(movie)) {
+    notice("O Alhômetro abre depois que o clube assiste ao filme.");
+    return;
+  }
+  state.busy = true;
+  try {
+    var wasNew = !state.myRatings[movieId];
+    var result = await state.supabase.from("movie_ratings").upsert({
+      user_id: state.user.id, movie_id: movieId, rating: score,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,movie_id" });
+    if (result.error) throw result.error;
+    state.myRatings[movieId] = score;
+    await loadRatings();
+    renderRating(movie);
+    renderMovies();
+    await loadLeaderboard();
+    notice("Você deu " + score + "/10 dentes de alho para “" + movie.title + "”." +
+      (wasNew ? " +2 pontos!" : " Nota atualizada."));
+  } catch (error) {
+    console.error(error);
+    notice("Não consegui salvar sua nota agora.");
+  } finally {
+    state.busy = false;
+  }
+}
 function profileName() {
   if (!state.user) return "";
   var meta = state.user.user_metadata || {};
@@ -537,7 +661,7 @@ function renderAccount() {
   $("#comment-auth-callout").hidden = authenticated;
   formButton.disabled = !authenticated;
   textarea.disabled = !authenticated;
-  if (state.activeMovie) renderNomination(state.activeMovie);
+  if (state.activeMovie) { renderNomination(state.activeMovie); renderRating(state.activeMovie); }
 
   if (authenticated) {
     button.querySelector("span").textContent = profileName() + " · sair";
@@ -577,7 +701,7 @@ async function legacyApi(payload) {
 async function toggleVote(id) {
   if (state.busy) return;
   if (!state.supabaseConfigured || !state.user) {
-    notice("Entre com o Discord para votar.");
+    notice("Entre com o Discord para marcar o que quer assistir.");
     return;
   }
   state.busy = true;
@@ -601,7 +725,8 @@ async function toggleVote(id) {
     renderMovies();
     updateModalVote();
     await loadLeaderboard();
-    notice(active ? "Seu voto foi retirado." : "Seu voto foi registrado e valeu 1 ponto.");
+    notice(active ? "Filme retirado da sua lista de interesse." :
+      "Interesse registrado. Isso ajuda a priorizar as próximas sessões e valeu 1 ponto.");
   } catch (error) {
     console.error(error);
     notice("Não consegui registrar agora. Tente novamente em instantes.");
@@ -657,10 +782,14 @@ async function loadLegacyInteractions() {
 
 async function loadSupabaseInteractions() {
   if (!state.supabase) return;
-  var countResult = await state.supabase.rpc("get_movie_vote_counts");
+  var countResult = await state.supabase.rpc("get_movie_interest_counts");
+  if (countResult.error) countResult = await state.supabase.rpc("get_movie_vote_counts");
   if (!countResult.error) {
-    state.votes = Object.fromEntries((countResult.data || []).map(function (row) { return [row.movie_id, Number(row.vote_count)]; }));
+    state.votes = Object.fromEntries((countResult.data || []).map(function (row) {
+      return [row.movie_id, Number(row.interest_count == null ? row.vote_count : row.interest_count)];
+    }));
   }
+  await loadRatings();
   var commentsResult = await state.supabase.from("club_comments").select("*").order("created_at", { ascending: false }).limit(300);
   if (!commentsResult.error) state.comments = commentsResult.data || [];
   state.voted = [];
@@ -731,6 +860,16 @@ $("#search").addEventListener("input", function (event) {
   state.query = event.target.value;
   renderMovies();
 });
+$$('[data-filter-link]').forEach(function (link) {
+  link.onclick = function () {
+    state.filter = link.dataset.filterLink;
+    state.exactList = "all";
+    state.franchise = null;
+    renderFilters();
+    renderMovies();
+  };
+});
+
 $("#list-filter").addEventListener("change", function (event) {
   state.exactList = event.target.value;
   state.filter = "all";
