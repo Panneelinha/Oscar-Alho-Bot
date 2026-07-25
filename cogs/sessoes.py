@@ -15,7 +15,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import embeds
-from movies import LISTA_ASSISTIDOS
+from movies import LISTA_ASSISTIDOS, foi_assistido
 from ui import rsvp_view
 
 
@@ -112,14 +112,14 @@ class Sessoes(commands.Cog):
         view = rsvp_view(sessao.chave) if sessao.chave else None
         await interaction.followup.send(embeds=lista_embeds, files=files, view=view)
 
-    @app_commands.command(name="nota", description="Dê sua nota (0 a 10) a um filme que você assistiu.")
-    @app_commands.describe(filme="Filme avaliado", nota="Nota de 0 a 10")
+    @app_commands.command(name="nota", description="Avalie de 1 a 10 dentes um filme já assistido.")
+    @app_commands.describe(filme="Filme avaliado", nota="Alhômetro: de 1 a 10 dentes")
     @app_commands.autocomplete(filme=_film_autocomplete)
     async def nota(
         self,
         interaction: discord.Interaction,
         filme: str,
-        nota: app_commands.Range[int, 0, 10],
+        nota: app_commands.Range[int, 1, 10],
     ) -> None:
         mv = await self.bot.catalog.por_id(filme)
         if mv is None:
@@ -128,18 +128,55 @@ class Sessoes(commands.Cog):
         if mv is None:
             await interaction.response.send_message(f"Não encontrei **{filme}**.", ephemeral=True)
             return
-        await self.bot.db.set_rating(interaction.user.id, mv.id, mv.name, int(nota), interaction.guild_id)
+        if not foi_assistido(mv.list_name):
+            await interaction.response.send_message(
+                f"O Alhômetro só abre depois que o clube assiste a **{mv.name}**. "
+                "Por enquanto, use `/quero_assistir` para ajudar a priorizá-lo.",
+                ephemeral=True,
+            )
+            return
+
+        await self.bot.db.set_rating(
+            interaction.user.id, mv.id, mv.name, int(nota), interaction.guild_id
+        )
         media, n = await self.bot.db.average_rating(mv.id)
+        supabase = getattr(self.bot, "supabase", None)
+        if supabase is not None:
+            try:
+                rating_sum, rating_count = await self.bot.db.rating_summary(mv.id)
+                await supabase.set_bot_rating_summary(mv.id, rating_sum, rating_count)
+                media, n = await supabase.movie_rating_count(mv.id)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Falha ao sincronizar Alhômetro de %s: %s", mv.id, exc)
+
         await interaction.response.send_message(
-            f"🧄 Você deu **{nota}/10** para **{mv.name}**.\n"
-            f"Média do clube agora: **{media}/10** ({n} voto(s)).",
+            f"🧄 Você deu **{nota}/10 dentes** para **{mv.name}**.\n"
+            f"Alhômetro do clube agora: **{media}/10** ({n} avaliação(ões)).",
             ephemeral=True,
         )
 
-    @app_commands.command(name="ranking_notas", description="Filmes mais bem avaliados pelo clube.")
+    @app_commands.command(name="ranking_notas", description="Veja o ranking do Alhômetro do clube.")
     async def ranking_notas(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
-        rows = await self.bot.db.ratings_ranking(limit=15)
+        rows: list[tuple[str, str, float, int]] = []
+        supabase = getattr(self.bot, "supabase", None)
+        if supabase is not None:
+            try:
+                combined = await supabase.movie_rating_ranking(limit=15)
+                for row in combined:
+                    card_id = str(row.get("movie_id", ""))
+                    mv = await self.bot.catalog.por_id(card_id)
+                    if mv is not None:
+                        rows.append((
+                            card_id,
+                            mv.name,
+                            float(row.get("average_score") or 0),
+                            int(row.get("rating_count") or 0),
+                        ))
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Falha ao carregar ranking combinado do Alhômetro: %s", exc)
+        if not rows:
+            rows = await self.bot.db.ratings_ranking(limit=15)
         await interaction.followup.send(embed=embeds.ratings_ranking_embed(rows))
 
     # ---------- tarefa automática ----------
