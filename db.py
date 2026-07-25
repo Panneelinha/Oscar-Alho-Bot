@@ -58,12 +58,12 @@ CREATE TABLE IF NOT EXISTS want_to_watch (
     created_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, card_id)
 );
--- Notas pós-sessão: 0 a 10, 1 nota por usuário por filme.
+-- Alhômetro pós-sessão: 1 a 10 dentes, 1 nota por usuário por filme.
 CREATE TABLE IF NOT EXISTS ratings (
     user_id    INTEGER NOT NULL,
     card_id    TEXT    NOT NULL,
     card_name  TEXT    NOT NULL,
-    nota       INTEGER NOT NULL,
+    nota       INTEGER NOT NULL CHECK (nota BETWEEN 1 AND 10),
     guild_id   INTEGER,
     updated_at TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, card_id)
@@ -277,6 +277,14 @@ class Database:
         if not row or row[1] == 0:
             return None, 0
         return round(row[0], 1), row[1]
+
+    async def rating_summary(self, card_id: str) -> tuple[int, int]:
+        """Retorna (soma das notas, quantidade) para sincronizar o Alhômetro."""
+        cur = await self.db.execute(
+            "SELECT COALESCE(SUM(nota), 0), COUNT(*) FROM ratings WHERE card_id=?", (card_id,)
+        )
+        row = await cur.fetchone()
+        return (int(row[0]), int(row[1])) if row else (0, 0)
 
     async def ratings_ranking(
         self, limit: int = 15, minimo: int = 1
