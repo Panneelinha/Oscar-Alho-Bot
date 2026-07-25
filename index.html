@@ -8,11 +8,12 @@
   <meta property="og:title" content="Oscaralho — Cineclube da Panneelinha" />
   <meta property="og:description" content="Catálogo, próximas sessões, votos e conversas do clube." />
   <meta property="og:image" content="https://panneelinha.github.io/Oscar-Alho-Bot/brand/oscar-alho-original.webp" />
-  <link rel="stylesheet" href="./styles-1.css?v=16" />
-  <link rel="stylesheet" href="./styles-2.css?v=16" />
-  <link rel="stylesheet" href="./styles-3.css?v=16" />
-  <link rel="stylesheet" href="./styles-4.css?v=16" />
-  <script type="module" src="./app.js?v=16"></script>
+  <link rel="stylesheet" href="./styles-1.css?v=17" />
+  <link rel="stylesheet" href="./styles-2.css?v=17" />
+  <link rel="stylesheet" href="./styles-3.css?v=17" />
+  <link rel="stylesheet" href="./styles-4.css?v=17" />
+  <link rel="stylesheet" href="./styles-5.css?v=17" />
+  <script type="module" src="./app.js?v=17"></script>
 </head>
 <body>
 <main>
@@ -25,6 +26,7 @@
       <a href="#inicio">Início</a>
       <a href="#sessoes">Sessões</a>
       <a href="#franquias">Franquias</a>
+      <a href="#mais-pedidos">Mais pedidos</a>
       <a href="#catalogo">Catálogo</a>
       <a href="#ranking">Ranking</a>
       <a href="#clube">Clube</a>
@@ -85,6 +87,19 @@
   </section>
 
 
+  <section class="most-wanted" id="mais-pedidos" aria-labelledby="most-wanted-title">
+    <div class="section-heading compact">
+      <div>
+        <p class="eyebrow">Preferência do público</p>
+        <h2 id="most-wanted-title">O que todo mundo quer assistir</h2>
+      </div>
+      <p>Os pedidos do site e do Discord ajudam a curadoria a decidir quais filmes merecem prioridade nas próximas sessões.</p>
+    </div>
+    <div class="most-wanted-rail" id="most-wanted-rail"></div>
+    <p class="ranking-empty" id="most-wanted-empty">O ranking começa quando alguém marcar “Quero assistir”.</p>
+    <a class="most-wanted-cta" href="#catalogo" data-filter-link="most-wanted">Ver ranking completo</a>
+  </section>
+
   <section class="catalog" id="catalogo" aria-labelledby="catalog-title">
     <div class="catalog-heading">
       <div>
@@ -123,7 +138,7 @@
       <p>Votos, presenças, indicações e comentários valem pontos. Continue participando para conquistar novos cargos.</p>
     </div>
     <div class="points-guide" aria-label="Como ganhar pontos">
-      <span><b>+1</b> voto</span><span><b>+2</b> presença</span><span><b>+3</b> indicação</span><span><b>+4</b> comentário</span>
+      <span><b>+1</b> quero assistir</span><span><b>+2</b> Alhômetro</span><span><b>+2</b> presença</span><span><b>+3</b> indicação</span><span><b>+4</b> comentário</span>
     </div>
     <div class="ranking-board" id="ranking-board"><p class="ranking-empty">Carregando a classificação...</p></div>
   </section>
@@ -163,7 +178,7 @@
         <p class="modal-original-title" id="modal-original-title"></p>
         <div class="chip-row" id="modal-chips"></div>
         <div class="modal-actions">
-          <button class="primary-button" id="modal-vote" type="button">Quero ver</button>
+          <button class="primary-button" id="modal-vote" type="button">🍿 Quero assistir</button>
           <button class="nominate-button" id="open-nomination" type="button" hidden>Indicar a prêmio</button>
           <a id="modal-imdb" target="_blank" rel="noreferrer">Abrir no IMDb</a>
         </div>
@@ -181,6 +196,15 @@
     <section class="modal-section" id="franchise-section" hidden>
       <div class="modal-section-title"><div><p class="eyebrow">Franquia</p><h3 id="modal-franchise-name"></h3></div><span id="modal-franchise-position"></span></div>
       <div class="franchise-sequence" id="franchise-sequence"></div>
+    </section>
+
+    <section class="modal-section alhometro-section" id="alhometro-section" hidden>
+      <div class="modal-section-title">
+        <div><p class="eyebrow">Nota do clube</p><h3>Alhômetro</h3></div>
+        <strong id="alhometro-average">Ainda sem avaliações</strong>
+      </div>
+      <p id="alhometro-help">Escolha de 1 a 10 dentes de alho.</p>
+      <div class="alhometro-scale" id="alhometro-scale" role="group" aria-label="Nota de 1 a 10 dentes de alho"></div>
     </section>
 
     <section class="modal-section nomination-section" id="nomination-section" hidden>
