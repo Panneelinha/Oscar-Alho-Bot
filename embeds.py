@@ -45,8 +45,8 @@ def movie_embed(
     if nota_clube and nota_clube[1]:
         media, n = nota_clube
         embed.add_field(
-            name="🧄 Nota do clube",
-            value=f"**{media}/10** {_stars(media)}\n{n} voto(s)",
+            name="🧄 Alhômetro",
+            value=f"**{media}/10 dentes** {_stars(media)}\n{n} avaliação(ões)",
             inline=True,
         )
     if mv.duracao:
@@ -326,7 +326,7 @@ def proxima_sessao_embed(
 
 
 def ratings_ranking_embed(rows: list[tuple[str, str, float, int]]) -> discord.Embed:
-    embed = discord.Embed(title="🧄 Notas do clube — Oscar Alho", color=COR)
+    embed = discord.Embed(title="🧄 Alhômetro — Oscar Alho", color=COR)
     if not rows:
         embed.description = "Ninguém avaliou nada ainda. Use `/nota` depois de assistir!"
         return embed
@@ -334,16 +334,16 @@ def ratings_ranking_embed(rows: list[tuple[str, str, float, int]]) -> discord.Em
     linhas = []
     for i, (_cid, nome, media, n) in enumerate(rows):
         prefixo = medalhas[i] if i < 3 else f"`{i + 1}.`"
-        linhas.append(f"{prefixo} **{nome}** — {media}/10 ({n} voto(s))")
+        linhas.append(f"{prefixo} **{nome}** — {media}/10 dentes ({n} avaliação(ões))")
     embed.description = "\n".join(linhas)
     return embed
 
 
 def want_ranking_embed(rows: list[tuple[str, str, int]]) -> discord.Embed:
     embed = discord.Embed(
-        title="🍿 Mais pedidos — “Quero assistir logo”",
+        title="🍿 Mais pedidos pelo público",
         color=COR,
-        description="Use isto para priorizar o que agendar primeiro.",
+        description="Interesse somado do site e do Discord para ajudar a curadoria a priorizar as próximas sessões.",
     )
     if not rows:
         embed.description = "Ninguém pediu nada ainda. O botão aparece em filmes não assistidos."
@@ -465,7 +465,7 @@ def estatisticas_embed(cat: dict, clube: dict) -> discord.Embed:
     ]
     if clube["nota_clube"] is not None:
         linhas.append(
-            f"🧄 Nota média do clube: **{clube['nota_clube']}/10** "
+            f"🧄 Alhômetro médio: **{clube['nota_clube']}/10 dentes** "
             f"{_stars(clube['nota_clube'])} ({clube['n_avaliacoes']} avaliações)"
         )
     if clube.get("top_curtido"):
@@ -473,7 +473,7 @@ def estatisticas_embed(cat: dict, clube: dict) -> discord.Embed:
     if clube.get("top_indicado"):
         linhas.append(f"🏆 Mais indicado: **{clube['top_indicado'][0]}** ({clube['top_indicado'][1]})")
     if clube.get("top_nota"):
-        linhas.append(f"🌟 Melhor nota do clube: **{clube['top_nota'][0]}** ({clube['top_nota'][1]}/10)")
+        linhas.append(f"🌟 Líder do Alhômetro: **{clube['top_nota'][0]}** ({clube['top_nota'][1]}/10)")
     embed.add_field(name="🎟️ Clube (Discord)", value="\n".join(linhas), inline=False)
 
     embed.set_footer(text="Oscar Alho 🧄 • catálogo + atividade do Discord")
