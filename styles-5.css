@@ -1,0 +1,29 @@
+/* Alhometro and audience-priority ranking */
+.most-wanted{position:relative;overflow:hidden;border-block:1px solid var(--line);padding:30px clamp(20px,3vw,46px) 36px;background:radial-gradient(circle at 82% 18%,rgba(246,177,211,.18),transparent 28%),linear-gradient(135deg,#10243d 0%,#08172a 68%)}
+.most-wanted .section-heading h2{color:var(--cream)}
+.most-wanted-rail{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 14px;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:var(--violet) transparent}
+.wanted-card{flex:0 0 154px;scroll-snap-align:start}
+.wanted-card>button{width:100%;display:block;position:relative;overflow:hidden;border:1px solid rgba(246,177,211,.55);border-radius:16px;padding:0;background:#0b2037;cursor:pointer;box-shadow:5px 6px 0 rgba(74,50,110,.45)}
+.wanted-card img{width:100%;aspect-ratio:2/3;display:block;object-fit:cover}
+.wanted-position,.wanted-count{position:absolute;z-index:2;border-radius:999px;font-weight:900}
+.wanted-position{top:8px;left:8px;width:28px;height:28px;display:grid;place-items:center;background:var(--pink);color:#281b35;font-size:11px}
+.wanted-count{right:8px;bottom:8px;padding:7px 9px;background:rgba(5,14,28,.92);color:var(--cream);font-size:9px}
+.wanted-card h3{margin:12px 0 4px;color:var(--paper);font-size:14px;line-height:1.08}
+.wanted-card p{margin:0;color:var(--pink);font-size:8px;line-height:1.35}
+.most-wanted-cta{display:inline-flex;min-height:38px;align-items:center;margin-top:12px;border:1px solid var(--pink);border-radius:999px;padding:0 16px;color:var(--pink);font-size:8px;font-weight:900;text-transform:uppercase}
+.card-alho{position:absolute;z-index:2;top:9px;right:9px;border:1px solid rgba(246,177,211,.55);border-radius:999px;padding:6px 8px;background:rgba(7,23,42,.94);color:var(--cream);font-size:8px;font-weight:900}
+.movie-actions .want-button{flex:1 1 auto;min-height:34px;border:1px solid var(--pink);border-radius:10px;padding:0 10px;background:rgba(246,177,211,.13);color:var(--pink);font-size:8px}
+.movie-actions .want-button:hover,.movie-actions .want-button:focus-visible,.movie-actions .want-button.voted{background:var(--pink);color:#281b35}
+.movie-actions .want-button span{margin-left:5px;font-size:10px}
+#modal-vote{min-height:46px;padding-inline:18px;font-size:9px}
+.alhometro-section{background:radial-gradient(circle at 92% 18%,rgba(246,177,211,.15),transparent 35%),#0d243d}
+.alhometro-section .modal-section-title strong{color:var(--cream);font-size:12px}
+.alhometro-section>p{margin:9px 0 16px;color:var(--muted);font-size:9px;line-height:1.5}
+.alhometro-scale{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px}
+.alhometro-scale button{min-width:0;min-height:54px;display:grid;place-items:center;align-content:center;gap:2px;border:1px solid var(--line);border-radius:12px;padding:4px 2px;background:#08192d;color:var(--muted);cursor:pointer}
+.alhometro-scale button span{font-size:19px;filter:grayscale(.85);opacity:.58}
+.alhometro-scale button b{font-size:8px}
+.alhometro-scale button:hover,.alhometro-scale button:focus-visible,.alhometro-scale button.selected{border-color:var(--pink);background:rgba(246,177,211,.14);color:var(--cream);transform:translateY(-2px)}
+.alhometro-scale button:hover span,.alhometro-scale button:focus-visible span,.alhometro-scale button.selected span{filter:none;opacity:1}
+.alhometro-scale button:disabled{cursor:not-allowed;opacity:.48;transform:none}
+@media(max-width:560px){.most-wanted{padding-inline:15px}.wanted-card{flex-basis:132px}.alhometro-scale{grid-template-columns:repeat(5,minmax(0,1fr))}.alhometro-scale button{min-height:48px}}
