@@ -19,9 +19,24 @@ HEADER = "🌐 Oscar Alho — interação do site"
 _BLOCK_RE = re.compile(r"\n*" + re.escape(DELIM) + r"\n" + re.escape(HEADER) + r".*?" + re.escape(DELIM), re.S)
 
 
-def _apply_site_votes(desc: str, count: int) -> str:
+def _apply_club_summary(
+    desc: str,
+    interest_count: int,
+    average_score: float | None,
+    rating_count: int,
+) -> str:
+    """Atualiza apenas o bloco agregado; nunca expõe quem votou ou avaliou."""
     base = _BLOCK_RE.sub("", desc or "").rstrip()
-    bloco = f"{DELIM}\n{HEADER}\n💜 Quero ver: {count} voto(s)\n_atualizado em {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')}_\n{DELIM}"
+    lines = [DELIM, HEADER, f"🍿 Quero assistir: {interest_count} pessoa(s)"]
+    if rating_count and average_score is not None:
+        lines.append(f"🧄 Alhômetro: {average_score:.1f}/10 ({rating_count} avaliação(ões))")
+    else:
+        lines.append("🧄 Alhômetro: ainda sem avaliações")
+    lines.extend([
+        f"_atualizado em {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')}_",
+        DELIM,
+    ])
+    bloco = "\n".join(lines)
     return f"{base}\n\n{bloco}" if base else bloco
 
 
@@ -64,15 +79,17 @@ class SiteSync(commands.Cog):
             f"💬 Site Oscar Alho — {author}\n{body}\n\n{marker}",
         )
 
-    async def _handle_vote(self, payload: dict) -> None:
-        card_id = str(payload.get("movie_id", ""))
+    async def _refresh_movie_summary(self, card_id: str) -> None:
         if not card_id:
-            raise ValueError("voto sem movie_id")
-        count = await self.bot.supabase.movie_vote_count(card_id)
+            raise ValueError("interação sem movie_id")
+        interest_count = await self.bot.supabase.movie_interest_count(card_id)
+        average_score, rating_count = await self.bot.supabase.movie_rating_count(card_id)
         movie = await self.bot.catalog.por_id(card_id)
         if movie is None:
             raise ValueError(f"card {card_id} não encontrado no catálogo")
-        new_desc = _apply_site_votes(movie.desc, count)
+        new_desc = _apply_club_summary(
+            movie.desc, interest_count, average_score, rating_count
+        )
         if new_desc != movie.desc:
             await self.bot.trello.update_card_desc(card_id, new_desc)
             movie.desc = new_desc
@@ -131,8 +148,8 @@ class SiteSync(commands.Cog):
         event_type = event.get("event_type")
         if event_type == "comment.created":
             await self._handle_comment(event, payload)
-        elif event_type == "vote.changed":
-            await self._handle_vote(payload)
+        elif event_type in {"vote.changed", "rating.changed"}:
+            await self._refresh_movie_summary(str(payload.get("movie_id", "")))
         elif event_type == "rsvp.changed":
             await self._handle_rsvp(event, payload)
         elif event_type == "nomination.created":
