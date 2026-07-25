@@ -25,6 +25,12 @@ async def registrar_quero_assistir(interaction: discord.Interaction, mv: Movie) 
         interaction.user.id, mv.id, mv.name, interaction.guild_id
     )
     total = await bot.db.count_want(mv.id)  # type: ignore[attr-defined]
+    supabase = getattr(bot, "supabase", None)
+    if supabase is not None:
+        try:
+            await supabase.set_bot_interest_count(mv.id, total)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Falha ao sincronizar Quero assistir de %s: %s", mv.id, exc)
     if add:
         msg = (
             f"🍿 **{mv.name}** ainda não foi assistido pelo clube, então não dá pra "
