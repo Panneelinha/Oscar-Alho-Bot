@@ -80,6 +80,10 @@ class SupabaseSyncClient:
         )
         return int(data or 0)
 
+    async def movie_vote_count(self, movie_id: str) -> int:
+        """Compatibilidade com o consumidor atual da fila de votos do site."""
+        return await self.movie_interest_count(movie_id)
+
     async def movie_interest_ranking(self, limit: int = 20) -> list[dict]:
         data = await self._request(
             "POST", "/rpc/get_movie_interest_ranking", json={"result_limit": max(1, min(limit, 100))}
@@ -101,6 +105,10 @@ class SupabaseSyncClient:
         count = int(row.get("rating_count") or 0)
         average = row.get("average_score")
         return (float(average) if average is not None else None, count)
+
+    async def movie_rating_summary(self, movie_id: str) -> tuple[float | None, int]:
+        """Compatibilidade com o consumidor atual da fila do Alhômetro."""
+        return await self.movie_rating_count(movie_id)
 
     async def movie_rating_ranking(self, limit: int = 20) -> list[dict]:
         data = await self._request(
