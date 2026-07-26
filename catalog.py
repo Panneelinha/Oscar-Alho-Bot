@@ -207,3 +207,4 @@ class Catalog:
             "duracao_media_min": dur_media,
         }
 
+
