@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Persistência local (SQLite via aiosqlite): votos dos membros e controle
 de quais cards já foram anunciados."""
 from __future__ import annotations
@@ -384,6 +387,31 @@ class Database:
         row = await cur.fetchone()
         return row[0] if row else 0
 
+    async def rekey_movie_interactions(self, mapping: dict[str, str]) -> None:
+        """Consolida votos/notas antigos de cards duplicados na identidade do filme."""
+        pairs = [(old, new) for old, new in mapping.items() if old and new and old != new]
+        if not pairs:
+            return
+        for old_id, new_id in pairs:
+            await self.db.execute(
+                "INSERT OR IGNORE INTO want_to_watch "
+                "(user_id, card_id, card_name, guild_id, created_at) "
+                "SELECT user_id, ?, card_name, guild_id, created_at FROM want_to_watch WHERE card_id=?",
+                (new_id, old_id),
+            )
+            await self.db.execute("DELETE FROM want_to_watch WHERE card_id=?", (old_id,))
+            await self.db.execute(
+                "INSERT INTO ratings (user_id, card_id, card_name, nota, guild_id, updated_at) "
+                "SELECT user_id, ?, card_name, nota, guild_id, updated_at FROM ratings WHERE card_id=? "
+                "ON CONFLICT(user_id, card_id) DO UPDATE SET "
+                "nota=CASE WHEN excluded.updated_at >= ratings.updated_at THEN excluded.nota ELSE ratings.nota END, "
+                "card_name=excluded.card_name, "
+                "updated_at=MAX(excluded.updated_at, ratings.updated_at)",
+                (new_id, old_id),
+            )
+            await self.db.execute("DELETE FROM ratings WHERE card_id=?", (old_id,))
+        await self.db.commit()
+
     # ---------- RSVP de sessões ----------
     async def set_rsvp(
         self, user_id: int, session_key: str, status: str, guild_id: int | None
@@ -649,3 +677,4 @@ class Database:
             for uid, c in await cur.fetchall():
                 out[uid][chave] = c
         return out
+
