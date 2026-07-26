@@ -1,3 +1,7 @@
+Exit code: 0
+Wall time: 0.5 seconds
+Total output lines: 1114
+Output:
 const state = {
   movies: [],
   comments: [],
@@ -55,8 +59,9 @@ const filters = [
   { id: "streaming", label: "No streaming", test: function (movie) { return movie.list === "STREAMING - DISPONÍVEL"; } },
   { id: "soon", label: "Em breve", test: function (movie) { return movie.list === "STREAMING - EM BREVE"; } },
   { id: "watchlist", label: "A assistir", test: function (movie) { return movie.list === "FILMES A ASSISTIR"; } },
-  { id: "most-wanted", label: "Mais pedidos", test: function (movie) { return !isWatched(movie) && interestCount(movie.id) > 0; } },
-  { id: "alhometro", label: "Alhômetro", test: function (movie) { return isWatched(movie) && ratingFor(movie.id).count > 0; } },
+  { id: "most-wanted", label: "Mais pedidos", test: function (movie) { return !isWatched(movie) && interestCount(movie) > 0; } },
+  { id: "most-hated", label: "Mais odiados", test: function (movie) { return isWatched(movie) && ratingFor(movie).count > 0; } },
+  { id: "alhometro", label: "Alhômetro", test: function (movie) { return isWatched(movie) && ratingFor(movie).count > 0; } },
   { id: "watched", label: "Assistidos", test: isWatched },
   { id: "pending-award", label: "Pendentes de indicação", test: function (movie) { return movie.list === "ASSISTIDOS — PENDENTE DE CATEGORIZAÇÃO"; } },
   { id: "awards", label: "Prêmio Alho", test: function (movie) { return !coreLists.has(movie.list); } }
@@ -94,12 +99,55 @@ function statusLabel(movie) {
   return movie.list;
 }
 
-function interestCount(movieId) {
-  return Number(state.votes[movieId] || 0);
+function normalizeMovieTitle(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
-function ratingFor(movieId) {
-  return state.ratings[movieId] || { average: null, count: 0 };
+
+function movieKey(movie) {
+  if (!movie) return "";
+  if (movie.canonicalKey) return movie.canonicalKey;
+  var imdbMatch = String(movie.imdbUrl || "").match(/\/title\/(tt\d+)/i);
+  if (imdbMatch) return "imdb:" + imdbMatch[1].toLowerCase();
+  return "title:" + (normalizeMovieTitle(movie.imdbTitle || movie.title) || String(movie.id || "").toLowerCase());
 }
+
+function movieGroup(movie) {
+  var key = movieKey(movie);
+  return state.movies.filter(function (item) { return movieKey(item) === key; });
+}
+
+function uniqueMovies(movies) {
+  var seen = new Set();
+  return movies.filter(function (movie) {
+    var key = movieKey(movie);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isBrazilian(movie) {
+  return movieGroup(movie).some(function (item) {
+    var labels = (item.labels || []).join(" ");
+    var text = [item.list, labels, item.description].filter(Boolean).join("\n")
+      .normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+    return item.list === "FILME NACIONAL" || /(^|\n)(PAIS|NACIONALIDADE|ORIGEM):\s*BRASIL\b/.test(text) || /\b(BRASILEIRO|BRASILEIRA|BOSTIL)\b/.test(labels.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase());
+  });
+}
+
+function interestCount(movie) {
+  return Number(state.votes[typeof movie === "string" ? movie : movieKey(movie)] || 0);
+}
+
+function ratingFor(movie) {
+  return state.ratings[typeof movie === "string" ? movie : movieKey(movie)] || { average: null, count: 0 };
+}
+
 function isWatched(movie) {
   var list = String(movie.list || "");
   return list.startsWith("ASSISTIDOS") || ![
@@ -324,216 +372,68 @@ function renderFilters() {
 function visibleMovies() {
   var active = filters.find(function (item) { return item.id === state.filter; }) || filters[0];
   var query = state.query.trim().toLocaleLowerCase("pt-BR");
-  return state.movies
+  var movies = state.movies
     .filter(active.test)
     .filter(function (movie) { return state.exactList === "all" || movie.list === state.exactList; })
     .filter(function (movie) { return !state.franchise || franchiseKey(movie.franchise) === state.franchise; })
     .filter(function (movie) {
       if (!query) return true;
       return [movie.title, movie.streaming, movie.list, movie.franchise, movie.genres]
-        .concat(movie.labels || []).filter(Boolean).join(" ")
-        .toLocaleLowerCase("pt-BR").includes(query);
+        .concat(movie.labels || [])
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(query);
     })
     .sort(function (a, b) {
       if (state.filter === "most-wanted") {
-        return interestCount(b.id) - interestCount(a.id) || a.title.localeCompare(b.title, "pt-BR");
+        return interestCount(b) - interestCount(a) || a.title.localeCompare(b.title, "pt-BR");
+      }
+      if (state.filter === "most-hated") {
+        var hatedA = ratingFor(a);
+        var hatedB = ratingFor(b);
+        return Number(hatedA.average || 0) - Number(hatedB.average || 0) || hatedB.count - hatedA.count || a.title.localeCompare(b.title, "pt-BR");
       }
       if (state.filter === "alhometro") {
-        var ra = ratingFor(a.id), rb = ratingFor(b.id);
-        return Number(rb.average || 0) - Number(ra.average || 0) ||
-          rb.count - ra.count || a.title.localeCompare(b.title, "pt-BR");
+        var ratingA = ratingFor(a);
+        var ratingB = ratingFor(b);
+        return Number(ratingB.average || 0) - Number(ratingA.average || 0) || ratingB.count - ratingA.count || a.title.localeCompare(b.title, "pt-BR");
       }
       return a.listOrder - b.listOrder || a.title.localeCompare(b.title, "pt-BR");
     });
+  return ["most-wanted", "most-hated", "alhometro"].includes(state.filter) ? uniqueMovies(movies) : movies;
 }
+
 function renderMostWanted() {
   var rail = $("#most-wanted-rail");
   if (!rail) return;
-  var movies = state.movies
-    .filter(function (movie) { return !isWatched(movie) && interestCount(movie.id) > 0; })
-    .sort(function (a, b) { return interestCount(b.id) - interestCount(a.id) || a.title.localeCompare(b.title, "pt-BR"); })
+  var movies = uniqueMovies(state.movies
+    .filter(function (movie) { return !isWatched(movie) && interestCount(movie) > 0; }))
+    .sort(function (a, b) { return interestCount(b) - interestCount(a) || a.title.localeCompare(b.title, "pt-BR"); })
     .slice(0, 10);
+
   $("#most-wanted-empty").hidden = movies.length > 0;
   rail.innerHTML = movies.map(function (movie, index) {
-    var count = interestCount(movie.id);
-    return '<article class="wanted-card"><button type="button" data-open="' + esc(movie.id) +
-      '" aria-label="Abrir ' + esc(movie.title) + '"><span class="wanted-position">' +
-      (index + 1) + '</span><img src="' + esc(movie.poster) +
-      '" alt="" loading="lazy" /><span class="wanted-count">🍿 ' + count +
-      '</span></button><div><h3>' + esc(movie.title) + '</h3><p>' + count +
-      (count === 1 ? ' pessoa quer assistir' : ' pessoas querem assistir') +
-      '</p></div></article>';
+    var count = interestCount(movie);
+    return '<article class="wanted-card">' +
+      '<button type="button" data-open="' + esc(movie.id) + '" aria-label="Abrir ' + esc(movie.title) + '">' +
+      '<span class="wanted-position">' + (index + 1) + '</span><img src="' + esc(movie.poster) + '" alt="" loading="lazy" />' +
+      '<span class="wanted-count">🍿 ' + count + '</span></button>' +
+      '<div><h3>' + esc(movie.title) + '</h3><p>' + count + (count === 1 ? ' pessoa quer assistir' : ' pessoas querem assistir') + '</p></div>' +
+      '</article>';
   }).join("");
   wireMovieOpeners();
 }
-function renderMovies() {
-  var movies = visibleMovies();
-  $("#result-count").textContent = movies.length;
-  $("#result-label").textContent = movies.length === 1 ? "filme encontrado" : "filmes encontrados";
-  $("#empty").hidden = movies.length !== 0;
-  $("#movie-grid").innerHTML = movies.map(function (movie, index) {
-    var count = interestCount(movie.id), rating = ratingFor(movie.id);
-    var wants = state.voted.includes(movie.id);
-    return '<article class="movie-card"><button class="poster-button" data-open="' + esc(movie.id) +
-      '" aria-label="Abrir ' + esc(movie.title) + '"><img src="' + esc(movie.poster) +
-      '" alt="Pôster de ' + esc(movie.title) + '" loading="' + (index < 12 ? "eager" : "lazy") +
-      '" /><span class="card-status">' + esc(statusLabel(movie)) + '</span>' +
-      (rating.count ? '<span class="card-alho" title="Alhômetro do clube">🧄 ' +
-        esc(Number(rating.average).toFixed(1).replace(".", ",")) + '</span>' : '') +
-      (movie.imdb ? '<span class="card-rating">IMDb ' + esc(movie.imdb.replace("/10", "")) + '</span>' : "") +
-      '</button><div class="movie-copy"><p>' + esc(movie.franchise || movie.streaming || movie.list) +
-      '</p><h3>' + esc(movie.title) + '</h3><div class="movie-actions"><button data-vote="' +
-      esc(movie.id) + '" class="want-button ' + (wants ? "voted" : "") + '">' +
-      (wants ? "✓ Quero assistir" : "🍿 Quero assistir") + ' <span>' + count +
-      '</span></button><button data-comment="' + esc(movie.id) + '">' +
-      (state.user ? "Comentar" : "Ver comentários") + '</button></div></div></article>';
-  }).join("");
-  wireMovieOpeners();
-  $$("[data-vote]").forEach(function (button) {
-    button.onclick = function () { toggleVote(button.dataset.vote); };
-  });
-  renderMostWanted();
-}
-function wireMovieOpeners() {
-  $$("[data-open],[data-comment]").forEach(function (button) {
-    button.onclick = function () { openMovie(button.dataset.open || button.dataset.comment); };
-  });
-}
 
-function metaItem(label, value) {
-  return value ? "<div><dt>" + esc(label) + "</dt><dd>" + esc(value) + "</dd></div>" : "";
-}
-
-function openMovie(id) {
-  var movie = state.movies.find(function (item) { return item.id === id; });
-  if (!movie) return;
-  state.activeMovie = movie;
-  $("#modal-poster").src = movie.poster;
-  $("#modal-poster").alt = "Pôster de " + movie.title;
-  $("#modal-status").textContent = statusLabel(movie);
-  $("#movie-modal-title").textContent = movie.title;
-  $("#modal-list").textContent = movie.list;
-  $("#modal-original-title").textContent = movie.imdbTitle && movie.imdbTitle !== movie.title ? movie.imdbTitle : "";
-  var currentWatchState = watchState(movie);
-  $("#modal-chips").innerHTML =
-    '<span class="watch-state ' + esc(currentWatchState.className) + '">' + esc(currentWatchState.label) + '</span>' +
-    []
-      .concat(movie.genres ? movie.genres.split(/[;,]/) : [])
-      .concat(movie.labels || [])
-      .filter(Boolean)
-      .map(function (item) { return "<span>" + esc(item.trim()) + "</span>"; })
-      .join("");  $("#modal-meta").innerHTML =
-    metaItem("Onde assistir", movie.streaming) +
-    metaItem("Data no streaming", movie.streamingDate) +
-    metaItem("Duração", movie.duration) +
-    metaItem("IMDb", movie.imdb ? movie.imdb + (movie.imdbReviews ? " · " + movie.imdbReviews + " avaliações" : "") : null) +
-    metaItem("Estreia", movie.release) +
-    metaItem("Sessão", movie.sessionDate) +
-    metaItem("Programação", movie.sessionProgramming) +
-    metaItem("Status", movie.sessionStatus);
-  $("#modal-synopsis").textContent = movie.synopsis || "A sinopse ainda não foi cadastrada nos comentários do card no Trello.";
-  $("#modal-description").textContent = movie.description || "Sem descrição adicional no Trello.";
-  $("#modal-imdb").hidden = !movie.imdbUrl;
-  if (movie.imdbUrl) $("#modal-imdb").href = movie.imdbUrl;
-  $("#modal-trailer").hidden = !movie.trailerUrl;
-  if (movie.trailerUrl) $("#modal-trailer").href = movie.trailerUrl;
-  renderFranchiseSequence(movie);
-  renderNomination(movie);
-  renderRating(movie);
-  updateModalVote();
-  renderComments();
-  $("#modal").hidden = false;
-  document.body.classList.add("movie-details-open");
-  document.body.style.overflow = "hidden";
-}
-
-function renderFranchiseSequence(movie) {
-  var key = franchiseKey(movie.franchise);
-  var section = $("#franchise-section");
-  if (!key) {
-    section.hidden = true;
-    return;
-  }
-  var group = franchiseGroups().find(function (item) { return item.name === key; });
-  if (!group) {
-    section.hidden = true;
-    return;
-  }
-
-  section.hidden = false;
-  $("#modal-franchise-name").textContent = group.name;
-  var currentPosition = franchisePosition(movie.franchise);
-  $("#modal-franchise-position").textContent = currentPosition
-    ? "Filme " + currentPosition.current + " de " + group.total
-    : group.movies.length + " de " + group.total + " no catálogo";
-
-  var positioned = new Map();
-  var unpositioned = [];
-  group.movies.forEach(function (item) {
-    var position = franchisePosition(item.franchise);
-    if (position) positioned.set(position.current, item);
-    else unpositioned.push(item);
-  });
-
-  var slots = Array.from({ length: group.total }, function (_unused, index) {
-    return { position: index + 1, movie: positioned.get(index + 1) || unpositioned.shift() || null };
-  });
-
-  $("#franchise-sequence").innerHTML = slots.map(function (slot) {
-    if (!slot.movie) {
-      var mappedTitles = franchiseTitles[group.name] || [];
-      var mappedTitle = mappedTitles[slot.position - 1];
-      return '<div class="franchise-missing">' +
-        '<img src="./poster-fallback.webp" alt="" />' +
-        '<div><strong>' + esc(mappedTitle || ("Filme " + slot.position + " da franquia")) + '</strong>' +
-        '<small>Ainda não está cadastrado no catálogo</small></div>' +
-        '<span class="watch-state unknown">Status não informado</span></div>';
-    }
-    var item = slot.movie;
-    var itemWatch = watchState(item);
-    return '<button type="button" data-franchise-movie="' + esc(item.id) + '" class="' + (item.id === movie.id ? "active" : "") + '">' +
-      '<img src="' + esc(item.poster) + '" alt="" />' +
-      '<div><strong>' + esc(item.title) + '</strong><small>Filme ' + slot.position + ' de ' + group.total + '</small></div>' +
-      '<span class="watch-state ' + esc(itemWatch.className) + '">' + esc(itemWatch.label) + '</span></button>';
-  }).join("");
-
-  $$('[data-franchise-movie]').forEach(function (button) {
-    button.onclick = function () { openMovie(button.dataset.franchiseMovie); };
-  });
-}
-function renderNomination(movie) {
-  var watched = isWatched(movie);
-  var openButton = $("#open-nomination");
-  var section = $("#nomination-section");
-  openButton.hidden = !watched;
-  section.hidden = true;
-  if (!watched) return;
-
-  var options = AWARD_CATEGORIES.map(function (category) {
-    return '<option value="' + esc(category) + '">' + esc(category) + '</option>';
-  }).join("");
-  $("#nomination-category").innerHTML = '<option value="">Escolha uma categoria</option>' + options;
-  var own = state.nominations.filter(function (item) { return item.movie_id === movie.id; });
-  $("#nomination-history").textContent = own.length
-    ? "Você já indicou este filme em " + own.length + (own.length === 1 ? " categoria." : " categorias.")
-    : "Sua primeira indicação deste filme vale 3 pontos.";
-}
-
-function renderRanking() {
-  var board = $("#ranking-board");
-  if (!board) return;
-  if (!state.leaderboard.length) {
-    board.innerHTML = '<p class="ranking-empty">O ranking começa com a próxima participação. Entre com o Discord e inaugure o placar.</p>';
-    return;
-  }
-  board.innerHTML = state.leaderboard.map(function (member) {
-    var avatar = member.avatar_url
-      ? '<img src="' + esc(member.avatar_url) + '" alt="" />'
-      : '<span class="ranking-avatar">' + esc(String(member.display_name || "?").slice(0, 1).toUpperCase()) + '</span>';
-    return '<article class="ranking-row' + (member.is_current_user ? ' current' : '') + '">' +
-      '<strong class="ranking-position">' + esc(member.rank_position) + 'º</strong>' + avatar +
-      '<div><h3>' + esc(member.display_name) + '</h3><p>' + esc(member.reward_title) + '</p></div>' +
-      '<b class="ranking-points">' + esc(member.points) + '<small> pts</small></b></article>';
+function renderMostHated() {
+  var rail = $("#most-hated-rail");
+  if (!rail) return;
+  var movies = uniqueMovies(state.movies.filter(function (movie) {
+    return isWatched(movie) && ratingFor(movie).count > 0;
+  })).sort(function (a, b) {
+    var ratingA = ratingFor(a);
+    var ratingB = ratingFor(b);
+    return Number(ratingA.average || 0) - Number(ratingB.average || 0) || ratingB.cou…2356 tokens truncated…small> pts</small></b></article>';
   }).join("");
 }
 
@@ -557,38 +457,39 @@ async function loadLeaderboard() {
 
 function updateModalVote() {
   if (!state.activeMovie) return;
-  var active = state.voted.includes(state.activeMovie.id);
-  var count = interestCount(state.activeMovie.id);
+  var key = movieKey(state.activeMovie);
+  var active = state.voted.includes(key);
+  var count = interestCount(state.activeMovie);
   $("#modal-vote").textContent = active ? "✓ Quero assistir · " + count : "🍿 Quero assistir · " + count;
   $("#modal-vote").classList.toggle("selected", active);
 }
+
 function renderRating(movie) {
   var section = $("#alhometro-section");
   if (!section) return;
   var watched = isWatched(movie);
   section.hidden = !watched;
   if (!watched) return;
-  var aggregate = ratingFor(movie.id);
-  var own = Number(state.myRatings[movie.id] || 0);
+
+  var key = movieKey(movie);
+  var aggregate = ratingFor(movie);
+  var own = Number(state.myRatings[key] || 0);
   $("#alhometro-average").textContent = aggregate.count
-    ? Number(aggregate.average).toFixed(1).replace(".", ",") + "/10 · " + aggregate.count +
-      (aggregate.count === 1 ? " avaliação" : " avaliações")
+    ? Number(aggregate.average).toFixed(1).replace(".", ",") + "/10 · " + aggregate.count + (aggregate.count === 1 ? " avaliação" : " avaliações")
     : "Ainda sem avaliações";
   $("#alhometro-help").textContent = state.user
-    ? (own ? "Sua nota atual é " + own + "/10. Escolha outro dente para atualizar." :
-      "Escolha de 1 a 10 dentes de alho. Sua primeira nota vale 2 pontos.")
+    ? (own ? "Sua nota atual é " + own + "/10. Escolha outro dente para atualizar." : "Escolha de 1 a 10 dentes de alho. Sua primeira nota vale 2 pontos.")
     : "Entre com o Discord para deixar sua nota.";
   $("#alhometro-scale").innerHTML = Array.from({ length: 10 }, function (_unused, index) {
     var score = index + 1;
-    return '<button type="button" data-rating="' + score + '" class="' +
-      (own === score ? 'selected' : '') + '" ' + (!state.user ? 'disabled' : '') +
-      ' aria-label="Dar nota ' + score + ' de 10"><span aria-hidden="true">🧄</span><b>' +
-      score + '</b></button>';
+    return '<button type="button" data-rating="' + score + '" class="' + (own === score ? 'selected' : '') + '" ' + (!state.user ? 'disabled' : '') + ' aria-label="Dar nota ' + score + ' de 10">' +
+      '<span aria-hidden="true">🧄</span><b>' + score + '</b></button>';
   }).join("");
-  $$("[data-rating]").forEach(function (button) {
+  $('[data-rating]').forEach(function (button) {
     button.onclick = function () { submitRating(movie.id, Number(button.dataset.rating)); };
   });
 }
+
 async function loadRatings() {
   if (!state.supabase) return;
   var aggregateResult = await state.supabase.rpc("get_movie_rating_counts");
@@ -599,15 +500,13 @@ async function loadRatings() {
   }
   state.myRatings = {};
   if (state.user) {
-    var ownResult = await state.supabase.from("movie_ratings")
-      .select("movie_id,rating").eq("user_id", state.user.id);
+    var ownResult = await state.supabase.from("movie_ratings").select("movie_id,rating").eq("user_id", state.user.id);
     if (!ownResult.error) {
-      state.myRatings = Object.fromEntries((ownResult.data || []).map(function (row) {
-        return [row.movie_id, Number(row.rating)];
-      }));
+      state.myRatings = Object.fromEntries((ownResult.data || []).map(function (row) { return [row.movie_id, Number(row.rating)]; }));
     }
   }
 }
+
 async function submitRating(movieId, score) {
   if (state.busy) return;
   if (!state.supabaseConfigured || !state.user || !state.supabase) {
@@ -621,19 +520,21 @@ async function submitRating(movieId, score) {
   }
   state.busy = true;
   try {
-    var wasNew = !state.myRatings[movieId];
+    var key = movieKey(movie);
+    var wasNew = !state.myRatings[key];
     var result = await state.supabase.from("movie_ratings").upsert({
-      user_id: state.user.id, movie_id: movieId, rating: score,
+      user_id: state.user.id,
+      movie_id: key,
+      rating: score,
       updated_at: new Date().toISOString()
     }, { onConflict: "user_id,movie_id" });
     if (result.error) throw result.error;
-    state.myRatings[movieId] = score;
+    state.myRatings[key] = score;
     await loadRatings();
     renderRating(movie);
     renderMovies();
     await loadLeaderboard();
-    notice("Você deu " + score + "/10 dentes de alho para “" + movie.title + "”." +
-      (wasNew ? " +2 pontos!" : " Nota atualizada."));
+    notice("Você deu " + score + "/10 dentes de alho para “" + movie.title + "”." + (wasNew ? " +2 pontos!" : " Nota atualizada."));
   } catch (error) {
     console.error(error);
     notice("Não consegui salvar sua nota agora.");
@@ -641,6 +542,7 @@ async function submitRating(movieId, score) {
     state.busy = false;
   }
 }
+
 function profileName() {
   if (!state.user) return "";
   var meta = state.user.user_metadata || {};
@@ -706,29 +608,31 @@ async function toggleVote(id) {
     notice("Entre com o Discord para marcar o que quer assistir.");
     return;
   }
+  var movie = state.movies.find(function (item) { return item.id === id; });
+  if (!movie) return;
+  var key = movieKey(movie);
   state.busy = true;
   try {
-    var active = state.voted.includes(id);
-    var count = Number(state.votes[id] || 0);
+    var active = state.voted.includes(key);
+    var count = interestCount(movie);
     if (state.supabaseConfigured) {
       var query = state.supabase.from("movie_votes");
       var result = active
-        ? await query.delete().eq("user_id", state.user.id).eq("movie_id", id)
-        : await query.insert({ user_id: state.user.id, movie_id: id });
+        ? await query.delete().eq("user_id", state.user.id).eq("movie_id", key)
+        : await query.insert({ user_id: state.user.id, movie_id: key });
       if (result.error) throw result.error;
-      state.voted = active ? state.voted.filter(function (item) { return item !== id; }) : Array.from(new Set(state.voted.concat(id)));
-      state.votes[id] = Math.max(0, count + (active ? -1 : 1));
+      state.voted = active ? state.voted.filter(function (item) { return item !== key; }) : Array.from(new Set(state.voted.concat(key)));
+      state.votes[key] = Math.max(0, count + (active ? -1 : 1));
     } else {
-      var data = await legacyApi({ action: "toggle_vote", userId: legacyIdentity(), movieId: id });
-      state.votes[id] = data.count;
-      state.voted = data.active ? Array.from(new Set(state.voted.concat(id))) : state.voted.filter(function (item) { return item !== id; });
+      var data = await legacyApi({ action: "toggle_vote", userId: legacyIdentity(), movieId: key });
+      state.votes[key] = data.count;
+      state.voted = data.active ? Array.from(new Set(state.voted.concat(key))) : state.voted.filter(function (item) { return item !== key; });
       localStorage.setItem("oscar-alho-votes", JSON.stringify(state.voted));
     }
     renderMovies();
     updateModalVote();
     await loadLeaderboard();
-    notice(active ? "Filme retirado da sua lista de interesse." :
-      "Interesse registrado. Isso ajuda a priorizar as próximas sessões e valeu 1 ponto.");
+    notice(active ? "Filme retirado da sua lista de interesse." : "Interesse registrado. Isso ajuda a priorizar as próximas sessões e valeu 1 ponto.");
   } catch (error) {
     console.error(error);
     notice("Não consegui registrar agora. Tente novamente em instantes.");
@@ -810,7 +714,9 @@ async function loadSupabaseInteractions() {
 function applyCatalog(catalog) {
   if (!catalog || !Array.isArray(catalog.movies) || !catalog.movies.length) return false;
   var activeId = state.activeMovie && state.activeMovie.id;
-  state.movies = catalog.movies;
+  state.movies = catalog.movies.map(function (movie) {
+    return Object.assign({}, movie, { canonicalKey: movie.canonicalKey || movieKey(movie) });
+  });
   renderHeaderAndSchedule(catalog);
   renderFranchises();
   renderFilters();
@@ -862,18 +768,16 @@ function startCatalogPolling() {
 
 async function initSupabase() {
   try {
-    var config = {
-      supabaseUrl: "https://qchxzzklkcotzohmjujv.supabase.co",
-      supabasePublishableKey: "sb_publishable_vgbEtx-BX-W0NfGjk22PFg_eKM8Ourm",
-      discordLoginEnabled: true
-    };
-    state.supabaseConfigured = Boolean(config.discordLoginEnabled && config.supabaseUrl && config.supabasePublishableKey);
-    if (!state.supabaseConfigured) {
+    var configResponse = await fetch("/api/config");
+    var config = configResponse.ok ? await configResponse.json() : {};
+    var hasSupabase = Boolean(config.supabaseUrl && config.supabasePublishableKey);
+    state.supabaseConfigured = Boolean(config.discordLoginEnabled && hasSupabase);
+    if (!hasSupabase) {
       renderAccount();
       await loadLegacyInteractions();
       return;
     }
-    var module = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    var module = await import("/vendor/supabase.js");
     state.supabase = module.createClient(config.supabaseUrl, config.supabasePublishableKey, {
       auth: { persistSession: true, detectSessionInUrl: true }
     });
@@ -895,7 +799,6 @@ async function initSupabase() {
     await loadLegacyInteractions();
   }
 }
-
 async function loginOrLogout() {
   if (!state.supabaseConfigured || !state.supabase) {
     notice("O login está preparado. Falta conectar o projeto Supabase e ativar o provedor Discord.");
@@ -908,7 +811,7 @@ async function loginOrLogout() {
   }
   var result = await state.supabase.auth.signInWithOAuth({
     provider: "discord",
-    options: { redirectTo: new URL(".", window.location.href).href }
+    options: { redirectTo: window.location.origin }
   });
   if (result.error) notice("Não consegui abrir o login do Discord.");
 }
@@ -917,16 +820,6 @@ $("#search").addEventListener("input", function (event) {
   state.query = event.target.value;
   renderMovies();
 });
-$$('[data-filter-link]').forEach(function (link) {
-  link.onclick = function () {
-    state.filter = link.dataset.filterLink;
-    state.exactList = "all";
-    state.franchise = null;
-    renderFilters();
-    renderMovies();
-  };
-});
-
 $("#list-filter").addEventListener("change", function (event) {
   state.exactList = event.target.value;
   state.filter = "all";
@@ -946,6 +839,15 @@ $("#open-nomination").onclick = function () {
   $("#nomination-section").scrollIntoView({ behavior: "smooth", block: "start" });
 };
 $("#discord-login").onclick = loginOrLogout;
+$$('[data-filter-link]').forEach(function (link) {
+  link.onclick = function () {
+    state.filter = link.dataset.filterLink || "all";
+    state.exactList = "all";
+    state.franchise = null;
+    renderFilters();
+    renderMovies();
+  };
+});
 
 $("#nomination-form").addEventListener("submit", async function (event) {
   event.preventDefault();
@@ -1019,40 +921,9 @@ $("#comment-form").addEventListener("submit", async function (event) {
     state.busy = false;
   }
 });
-
-async function hydratePosterPack(catalog) {
-  var response = await fetch("./poster-pack-index.json", { cache: "no-store" });
-  var manifest = await response.json();
-  var parts = await Promise.all(manifest.files.map(function (file) {
-    return fetch("./" + file, { cache: "force-cache" }).then(function (item) { return item.arrayBuffer(); });
-  }));
-  var total = parts.reduce(function (sum, item) { return sum + item.byteLength; }, 0);
-  var packed = new Uint8Array(total);
-  var cursor = 0;
-  parts.forEach(function (item) {
-    packed.set(new Uint8Array(item), cursor);
-    cursor += item.byteLength;
-  });
-  var urls = Object.create(null);
-  manifest.entries.forEach(function (item) {
-    var bytes = packed.slice(item.offset, item.offset + item.length);
-    urls[item.id] = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
-  });
-  catalog.movies.forEach(function (movie) {
-    movie.poster = urls[movie.id] || "./poster-fallback.webp";
-  });
-}
-
-fetch("./catalog-index.json", { cache: "no-store" })
+fetch("/catalog.json", { cache: "no-store" })
   .then(function (response) { return response.json(); })
-  .then(async function (manifest) {
-    var parts = await Promise.all(manifest.files.map(function (file) {
-      return fetch("./" + file, { cache: "no-store" }).then(function (response) { return response.json(); });
-    }));
-    return { updatedAt: manifest.updatedAt, total: manifest.total, movies: parts.flat() };
-  })
   .then(async function (catalog) {
-    await hydratePosterPack(catalog);
     applyCatalog(catalog);
     renderAccount();
     renderRanking();
