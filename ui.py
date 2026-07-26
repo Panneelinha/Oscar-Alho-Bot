@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Componentes interativos do público (botão persistente nos anúncios/fichas):
 - filme JÁ assistido  -> indicar a uma categoria (+ justificativa -> comentário no Trello)
 - filme NÃO assistido -> "Quero assistir logo" (preferência de agendamento)
@@ -12,6 +15,7 @@ from movies import (
     CATEGORIAS_PREMIACAO,
     LISTA_FORA_PREMIACAO,
     Movie,
+    canonical_movie_key,
     foi_assistido,
 )
 
@@ -21,14 +25,15 @@ log = logging.getLogger("oscar.ui")
 # ---------- fluxo: quero assistir logo ----------
 async def registrar_quero_assistir(interaction: discord.Interaction, mv: Movie) -> None:
     bot = interaction.client
+    movie_key = canonical_movie_key(mv)
     add = await bot.db.toggle_want(  # type: ignore[attr-defined]
-        interaction.user.id, mv.id, mv.name, interaction.guild_id
+        interaction.user.id, movie_key, mv.name, interaction.guild_id
     )
-    total = await bot.db.count_want(mv.id)  # type: ignore[attr-defined]
+    total = await bot.db.count_want(movie_key)  # type: ignore[attr-defined]
     supabase = getattr(bot, "supabase", None)
     if supabase is not None:
         try:
-            await supabase.set_bot_interest_count(mv.id, total)
+            await supabase.set_bot_interest_count(movie_key, total)
         except Exception as exc:  # noqa: BLE001
             log.warning("Falha ao sincronizar Quero assistir de %s: %s", mv.id, exc)
     if add:
@@ -258,3 +263,4 @@ def rsvp_view(session_key: str) -> discord.ui.View:
     for status in ("vou", "talvez", "nao"):
         view.add_item(RSVPButton(status, session_key))
     return view
+
