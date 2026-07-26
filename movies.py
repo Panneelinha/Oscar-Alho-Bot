@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Modelo de filme e parser do `desc` dos cards do Trello.
 
 O `desc` segue um padrão como:
@@ -108,6 +111,16 @@ def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s.lower())
     s = "".join(c for c in s if not unicodedata.combining(c))
     return re.sub(r"[^a-z0-9 ]+", " ", s).strip()
+
+
+def canonical_movie_key(movie: "Movie") -> str:
+    """Identidade estável compartilhada pelas cópias do mesmo filme no Trello."""
+    imdb_match = re.search(r"/title/(tt\d+)", movie.imdb_url or "", re.I)
+    if imdb_match:
+        return f"imdb:{imdb_match.group(1).lower()}"
+    title = _norm(movie.imdb_titulo or movie.name)
+    slug = re.sub(r"\s+", "-", title).strip("-")
+    return f"title:{slug or movie.id.lower()}"
 
 
 @dataclass
@@ -302,3 +315,4 @@ def parse_comentarios(textos: list[str]) -> CardExtras:
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
