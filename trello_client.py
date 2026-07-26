@@ -53,21 +53,13 @@ class TrelloClient:
         data = await self._get(
             f"/boards/{self.board_id}/lists",
             cards="open",
-            card_fields="name,desc,due,labels,idMembersVoted,badges,url,shortUrl,idAttachmentCover,dateLastActivity,pos",
+            card_fields="name,desc,due,labels,idMembersVoted,badges,url,shortUrl,idAttachmentCover",
             fields="name,pos",
             filter="open",
         )
         if not isinstance(data, list):
             raise TrelloError("Resposta inesperada do Trello ao listar listas.")
         return data
-
-    async def get_board_last_activity(self) -> str:
-        """Marca leve usada para detectar mudanças no board sem baixar todos os cards."""
-        data = await self._get(
-            f"/boards/{self.board_id}",
-            fields="dateLastActivity",
-        )
-        return str(data.get("dateLastActivity") or "") if isinstance(data, dict) else ""
 
     async def update_card_desc(self, card_id: str, desc: str) -> None:
         """Sobrescreve a descrição do card (usado para gravar o placar de votos)."""
@@ -145,4 +137,3 @@ class TrelloClient:
             ):
                 return url
         return None
-
