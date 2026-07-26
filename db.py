@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Persistência local (SQLite via aiosqlite): votos dos membros e controle
 de quais cards já foram anunciados."""
 from __future__ import annotations
