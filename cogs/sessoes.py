@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Ciclo da sessão:
 - /proxima (próxima sessão + RSVP)
 - /nota e /ranking_notas (avaliação pós-sessão)
@@ -15,7 +18,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 import embeds
-from movies import LISTA_ASSISTIDOS, foi_assistido
+from movies import LISTA_ASSISTIDOS, canonical_movie_key, foi_assistido
 from ui import rsvp_view
 
 
@@ -136,16 +139,17 @@ class Sessoes(commands.Cog):
             )
             return
 
+        movie_key = canonical_movie_key(mv)
         await self.bot.db.set_rating(
-            interaction.user.id, mv.id, mv.name, int(nota), interaction.guild_id
+            interaction.user.id, movie_key, mv.name, int(nota), interaction.guild_id
         )
-        media, n = await self.bot.db.average_rating(mv.id)
+        media, n = await self.bot.db.average_rating(movie_key)
         supabase = getattr(self.bot, "supabase", None)
         if supabase is not None:
             try:
-                rating_sum, rating_count = await self.bot.db.rating_summary(mv.id)
-                await supabase.set_bot_rating_summary(mv.id, rating_sum, rating_count)
-                media, n = await supabase.movie_rating_count(mv.id)
+                rating_sum, rating_count = await self.bot.db.rating_summary(movie_key)
+                await supabase.set_bot_rating_summary(movie_key, rating_sum, rating_count)
+                media, n = await supabase.movie_rating_count(movie_key)
             except Exception as exc:  # noqa: BLE001
                 log.warning("Falha ao sincronizar Alhômetro de %s: %s", mv.id, exc)
 
@@ -164,11 +168,12 @@ class Sessoes(commands.Cog):
             try:
                 combined = await supabase.movie_rating_ranking(limit=15)
                 for row in combined:
-                    card_id = str(row.get("movie_id", ""))
-                    mv = await self.bot.catalog.por_id(card_id)
+                    movie_key = str(row.get("movie_id", ""))
+                    matches = await self.bot.catalog.por_chave_canonica(movie_key)
+                    mv = matches[0] if matches else None
                     if mv is not None:
                         rows.append((
-                            card_id,
+                            movie_key,
                             mv.name,
                             float(row.get("average_score") or 0),
                             int(row.get("rating_count") or 0),
@@ -178,7 +183,6 @@ class Sessoes(commands.Cog):
         if not rows:
             rows = await self.bot.db.ratings_ranking(limit=15)
         await interaction.followup.send(embed=embeds.ratings_ranking_embed(rows))
-
     # ---------- tarefa automática ----------
     @tasks.loop(minutes=15)
     async def checar_sessoes(self) -> None:
@@ -509,3 +513,4 @@ class Sessoes(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Sessoes(bot))
+
