@@ -1139,5 +1139,5 @@ fetch("./catalog-index.json", { cache: "no-store" })
   })
   .catch(function (error) {
     console.error(error);
-    notice("Não consegui abrir o catálogo agora. Atualize a página em instantes.");
+    if (!state.movies.length) notice("Não consegui abrir o catálogo agora. Atualize a página em instantes.");
   });
