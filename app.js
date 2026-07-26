@@ -1099,9 +1099,39 @@ $("#comment-form").addEventListener("submit", async function (event) {
     state.busy = false;
   }
 });
-fetch("/catalog.json", { cache: "no-store" })
+async function hydratePosterPack(catalog) {
+  var response = await fetch("./poster-pack-index.json", { cache: "no-store" });
+  var manifest = await response.json();
+  var parts = await Promise.all(manifest.files.map(function (file) {
+    return fetch("./" + file, { cache: "force-cache" }).then(function (item) { return item.arrayBuffer(); });
+  }));
+  var total = parts.reduce(function (sum, item) { return sum + item.byteLength; }, 0);
+  var packed = new Uint8Array(total);
+  var cursor = 0;
+  parts.forEach(function (item) {
+    packed.set(new Uint8Array(item), cursor);
+    cursor += item.byteLength;
+  });
+  var urls = Object.create(null);
+  manifest.entries.forEach(function (item) {
+    var bytes = packed.slice(item.offset, item.offset + item.length);
+    urls[item.id] = URL.createObjectURL(new Blob([bytes], { type: "image/webp" }));
+  });
+  catalog.movies.forEach(function (movie) {
+    movie.poster = urls[movie.id] || "./poster-fallback.webp";
+  });
+}
+
+fetch("./catalog-index.json", { cache: "no-store" })
   .then(function (response) { return response.json(); })
+  .then(async function (manifest) {
+    var parts = await Promise.all(manifest.files.map(function (file) {
+      return fetch("./" + file, { cache: "no-store" }).then(function (response) { return response.json(); });
+    }));
+    return { updatedAt: manifest.updatedAt, total: manifest.total, movies: parts.flat() };
+  })
   .then(async function (catalog) {
+    await hydratePosterPack(catalog);
     applyCatalog(catalog);
     renderAccount();
     renderRanking();
