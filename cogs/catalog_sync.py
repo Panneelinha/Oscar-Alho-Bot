@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
 """Espelha o catálogo público do Trello no Supabase.
 
 A cada intervalo o bot consulta apenas dateLastActivity do board. O catálogo
@@ -261,4 +258,3 @@ class CatalogSync(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(CatalogSync(bot))
-
