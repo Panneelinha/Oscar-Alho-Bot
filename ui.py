@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Componentes interativos do público (botão persistente nos anúncios/fichas):
 - filme JÁ assistido  -> indicar a uma categoria (+ justificativa -> comentário no Trello)
 - filme NÃO assistido -> "Quero assistir logo" (preferência de agendamento)
