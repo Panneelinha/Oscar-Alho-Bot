@@ -429,7 +429,189 @@ function renderMostHated() {
   })).sort(function (a, b) {
     var ratingA = ratingFor(a);
     var ratingB = ratingFor(b);
-    return Number(ratingA.average || 0) - Number(ratingB.average || 0) || ratingB.cou…2356 tokens truncated…small> pts</small></b></article>';
+    return Number(ratingA.average || 0) - Number(ratingB.average || 0) || ratingB.count - ratingA.count || a.title.localeCompare(b.title, "pt-BR");
+  }).slice(0, 10);
+
+  $("#most-hated-empty").hidden = movies.length > 0;
+  rail.innerHTML = movies.map(function (movie, index) {
+    var rating = ratingFor(movie);
+    return '<article class="wanted-card hated-card">' +
+      '<button type="button" data-open="' + esc(movie.id) + '" aria-label="Abrir ' + esc(movie.title) + '">' +
+      '<span class="wanted-position">' + (index + 1) + '</span><img src="' + esc(movie.poster) + '" alt="" loading="lazy" />' +
+      '<span class="wanted-count">🧄 ' + esc(Number(rating.average).toFixed(1).replace(".", ",")) + '/10</span></button>' +
+      '<div><h3>' + esc(movie.title) + '</h3><p>' + rating.count + (rating.count === 1 ? ' avaliação' : ' avaliações') + '</p></div>' +
+      '</article>';
+  }).join("");
+  wireMovieOpeners();
+}
+
+function renderMovies() {
+  var movies = visibleMovies();
+  $("#result-count").textContent = movies.length;
+  $("#result-label").textContent = movies.length === 1 ? "filme encontrado" : "filmes encontrados";
+  $("#empty").hidden = movies.length !== 0;
+  $("#movie-grid").innerHTML = movies.map(function (movie, index) {
+    var key = movieKey(movie);
+    var count = interestCount(movie);
+    var rating = ratingFor(movie);
+    var wants = state.voted.includes(key);
+    return '<article class="movie-card"><button class="poster-button" data-open="' + esc(movie.id) + '" aria-label="Abrir ' + esc(movie.title) + '">' +
+      '<img src="' + esc(movie.poster) + '" alt="Pôster de ' + esc(movie.title) + '" loading="' + (index < 12 ? "eager" : "lazy") + '" />' +
+      '<span class="card-status">' + esc(statusLabel(movie)) + '</span>' +
+      (isBrazilian(movie) ? '<span class="card-bostil" title="Filme brasileiro">BOSTIL</span>' : '') +
+      (rating.count ? '<span class="card-alho" title="Alhômetro do clube">🧄 ' + esc(Number(rating.average).toFixed(1).replace(".", ",")) + '</span>' : '') +
+      (movie.imdb ? '<span class="card-rating">IMDb ' + esc(movie.imdb.replace("/10", "")) + '</span>' : "") +
+      '</button><div class="movie-copy"><p>' + esc(movie.franchise || movie.streaming || movie.list) + '</p><h3>' + esc(movie.title) + '</h3>' +
+      '<div class="movie-actions"><button data-vote="' + esc(movie.id) + '" class="want-button ' + (wants ? "voted" : "") + '">' +
+      (wants ? "✓ Quero assistir" : "🍿 Quero assistir") + ' <span>' + count + '</span></button>' +
+      '<button data-comment="' + esc(movie.id) + '">' + (state.user ? "Comentar" : "Ver comentários") + '</button></div></div></article>';
+  }).join("");
+  wireMovieOpeners();
+  $("[data-vote]").forEach(function (button) { button.onclick = function () { toggleVote(button.dataset.vote); }; });
+  renderMostWanted();
+  renderMostHated();
+}
+
+function wireMovieOpeners() {
+  $$("[data-open],[data-comment]").forEach(function (button) {
+    button.onclick = function () { openMovie(button.dataset.open || button.dataset.comment); };
+  });
+}
+
+function metaItem(label, value) {
+  return value ? "<div><dt>" + esc(label) + "</dt><dd>" + esc(value) + "</dd></div>" : "";
+}
+
+function openMovie(id) {
+  var movie = state.movies.find(function (item) { return item.id === id; });
+  if (!movie) return;
+  state.activeMovie = movie;
+  $("#modal-poster").src = movie.poster;
+  $("#modal-poster").alt = "Pôster de " + movie.title;
+  $("#modal-status").textContent = statusLabel(movie);
+  $("#movie-modal-title").textContent = movie.title;
+  $("#modal-list").textContent = movie.list;
+  $("#modal-original-title").textContent = movie.imdbTitle && movie.imdbTitle !== movie.title ? movie.imdbTitle : "";
+  var currentWatchState = watchState(movie);
+  $("#modal-chips").innerHTML =
+    '<span class="watch-state ' + esc(currentWatchState.className) + '">' + esc(currentWatchState.label) + '</span>' +
+    []
+      .concat(movie.genres ? movie.genres.split(/[;,]/) : [])
+      .concat(movie.labels || [])
+      .filter(Boolean)
+      .map(function (item) { return "<span>" + esc(item.trim()) + "</span>"; })
+      .join("");  $("#modal-meta").innerHTML =
+    metaItem("Onde assistir", movie.streaming) +
+    metaItem("Data no streaming", movie.streamingDate) +
+    metaItem("Duração", movie.duration) +
+    metaItem("IMDb", movie.imdb ? movie.imdb + (movie.imdbReviews ? " · " + movie.imdbReviews + " avaliações" : "") : null) +
+    metaItem("Estreia", movie.release) +
+    metaItem("Sessão", movie.sessionDate) +
+    metaItem("Programação", movie.sessionProgramming) +
+    metaItem("Status", movie.sessionStatus);
+  $("#modal-synopsis").textContent = movie.synopsis || "A sinopse ainda não foi cadastrada nos comentários do card no Trello.";
+  $("#modal-description").textContent = movie.description || "Sem descrição adicional no Trello.";
+  $("#modal-imdb").hidden = !movie.imdbUrl;
+  if (movie.imdbUrl) $("#modal-imdb").href = movie.imdbUrl;
+  $("#modal-trailer").hidden = !movie.trailerUrl;
+  if (movie.trailerUrl) $("#modal-trailer").href = movie.trailerUrl;
+  renderFranchiseSequence(movie);
+  renderNomination(movie);
+  renderRating(movie);
+  updateModalVote();
+  renderComments();
+  $("#modal").hidden = false;
+  document.body.classList.add("movie-details-open");
+  document.body.style.overflow = "hidden";
+}
+
+function renderFranchiseSequence(movie) {
+  var key = franchiseKey(movie.franchise);
+  var section = $("#franchise-section");
+  if (!key) {
+    section.hidden = true;
+    return;
+  }
+  var group = franchiseGroups().find(function (item) { return item.name === key; });
+  if (!group) {
+    section.hidden = true;
+    return;
+  }
+
+  section.hidden = false;
+  $("#modal-franchise-name").textContent = group.name;
+  var currentPosition = franchisePosition(movie.franchise);
+  $("#modal-franchise-position").textContent = currentPosition
+    ? "Filme " + currentPosition.current + " de " + group.total
+    : group.movies.length + " de " + group.total + " no catálogo";
+
+  var positioned = new Map();
+  var unpositioned = [];
+  group.movies.forEach(function (item) {
+    var position = franchisePosition(item.franchise);
+    if (position) positioned.set(position.current, item);
+    else unpositioned.push(item);
+  });
+
+  var slots = Array.from({ length: group.total }, function (_unused, index) {
+    return { position: index + 1, movie: positioned.get(index + 1) || unpositioned.shift() || null };
+  });
+
+  $("#franchise-sequence").innerHTML = slots.map(function (slot) {
+    if (!slot.movie) {
+      var mappedTitles = franchiseTitles[group.name] || [];
+      var mappedTitle = mappedTitles[slot.position - 1];
+      return '<div class="franchise-missing">' +
+        '<img src="/poster-fallback.png" alt="" />' +
+        '<div><strong>' + esc(mappedTitle || ("Filme " + slot.position + " da franquia")) + '</strong>' +
+        '<small>Ainda não está cadastrado no catálogo</small></div>' +
+        '<span class="watch-state unknown">Status não informado</span></div>';
+    }
+    var item = slot.movie;
+    var itemWatch = watchState(item);
+    return '<button type="button" data-franchise-movie="' + esc(item.id) + '" class="' + (item.id === movie.id ? "active" : "") + '">' +
+      '<img src="' + esc(item.poster) + '" alt="" />' +
+      '<div><strong>' + esc(item.title) + '</strong><small>Filme ' + slot.position + ' de ' + group.total + '</small></div>' +
+      '<span class="watch-state ' + esc(itemWatch.className) + '">' + esc(itemWatch.label) + '</span></button>';
+  }).join("");
+
+  $$('[data-franchise-movie]').forEach(function (button) {
+    button.onclick = function () { openMovie(button.dataset.franchiseMovie); };
+  });
+}
+function renderNomination(movie) {
+  var watched = isWatched(movie);
+  var openButton = $("#open-nomination");
+  var section = $("#nomination-section");
+  openButton.hidden = !watched;
+  section.hidden = true;
+  if (!watched) return;
+
+  var options = AWARD_CATEGORIES.map(function (category) {
+    return '<option value="' + esc(category) + '">' + esc(category) + '</option>';
+  }).join("");
+  $("#nomination-category").innerHTML = '<option value="">Escolha uma categoria</option>' + options;
+  var own = state.nominations.filter(function (item) { return item.movie_id === movie.id; });
+  $("#nomination-history").textContent = own.length
+    ? "Você já indicou este filme em " + own.length + (own.length === 1 ? " categoria." : " categorias.")
+    : "Sua primeira indicação deste filme vale 3 pontos.";
+}
+
+function renderRanking() {
+  var board = $("#ranking-board");
+  if (!board) return;
+  if (!state.leaderboard.length) {
+    board.innerHTML = '<p class="ranking-empty">O ranking começa com a próxima participação. Entre com o Discord e inaugure o placar.</p>';
+    return;
+  }
+  board.innerHTML = state.leaderboard.map(function (member) {
+    var avatar = member.avatar_url
+      ? '<img src="' + esc(member.avatar_url) + '" alt="" />'
+      : '<span class="ranking-avatar">' + esc(String(member.display_name || "?").slice(0, 1).toUpperCase()) + '</span>';
+    return '<article class="ranking-row' + (member.is_current_user ? ' current' : '') + '">' +
+      '<strong class="ranking-position">' + esc(member.rank_position) + 'º</strong>' + avatar +
+      '<div><h3>' + esc(member.display_name) + '</h3><p>' + esc(member.reward_title) + '</p></div>' +
+      '<b class="ranking-points">' + esc(member.points) + '<small> pts</small></b></article>';
   }).join("");
 }
 
@@ -929,4 +1111,3 @@ fetch("/catalog.json", { cache: "no-store" })
     console.error(error);
     notice("Não consegui abrir o catálogo agora. Atualize a página em instantes.");
   });
-
