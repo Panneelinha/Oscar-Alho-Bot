@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Comandos de interação do público:
 /indicar, /quero_assistir, /ranking_quero_assistir, /minhas_indicacoes."""
 from __future__ import annotations
