@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Camada de serviço: lê o board pelo TrelloClient, monta objetos Movie e
 oferece consultas (programação, busca, categorias) com um cache curto."""
 from __future__ import annotations
