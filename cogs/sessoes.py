@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Ciclo da sessão:
 - /proxima (próxima sessão + RSVP)
 - /nota e /ranking_notas (avaliação pós-sessão)
