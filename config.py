@@ -42,6 +42,7 @@ class Config:
     supabase_url: str              # projeto Supabase do site (vazio = ponte desligada)
     supabase_service_role_key: str # chave secreta do servidor; nunca expor no navegador
     supabase_poll_seconds: int     # intervalo da fila Site → Trello
+    trello_catalog_sync_seconds: int  # detector Trello → Supabase
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -61,6 +62,7 @@ class Config:
         sync_hour = os.getenv("TRELLO_SYNC_HOUR", "23").strip()
         mode = os.getenv("VOTE_SYNC_MODE", "desc").strip().lower()
         supabase_poll = os.getenv("SUPABASE_POLL_SECONDS", "30").strip()
+        catalog_sync = os.getenv("TRELLO_CATALOG_SYNC_SECONDS", "10").strip()
         if mode not in ("desc", "comment", "off"):
             mode = "desc"
         return cls(
@@ -95,4 +97,7 @@ class Config:
                 or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
             ),
             supabase_poll_seconds=int(supabase_poll) if supabase_poll.isdigit() and int(supabase_poll) >= 10 else 30,
+            trello_catalog_sync_seconds=(
+                int(catalog_sync) if catalog_sync.isdigit() and int(catalog_sync) >= 10 else 10
+            ),
         )
