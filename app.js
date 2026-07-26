@@ -947,7 +947,11 @@ function startCatalogPolling() {
 async function initSupabase() {
   try {
     var configResponse = await fetch("/api/config");
-    var config = configResponse.ok ? await configResponse.json() : {};
+    var config = configResponse.ok ? await configResponse.json() : {
+      supabaseUrl: "https://qchxzzklkcotzohmjujv.supabase.co",
+      supabasePublishableKey: "sb_publishable_vgbEtx-BX-W0NfGjk22PFg_eKM8Ourm",
+      discordLoginEnabled: true
+    };
     var hasSupabase = Boolean(config.supabaseUrl && config.supabasePublishableKey);
     state.supabaseConfigured = Boolean(config.discordLoginEnabled && hasSupabase);
     if (!hasSupabase) {
