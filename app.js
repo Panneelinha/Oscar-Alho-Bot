@@ -467,7 +467,7 @@ function renderMovies() {
       '<button data-comment="' + esc(movie.id) + '">' + (state.user ? "Comentar" : "Ver comentários") + '</button></div></div></article>';
   }).join("");
   wireMovieOpeners();
-  $("[data-vote]").forEach(function (button) { button.onclick = function () { toggleVote(button.dataset.vote); }; });
+  $$("[data-vote]").forEach(function (button) { button.onclick = function () { toggleVote(button.dataset.vote); }; });
   renderMostWanted();
   renderMostHated();
 }
@@ -663,7 +663,7 @@ function renderRating(movie) {
     return '<button type="button" data-rating="' + score + '" class="' + (own === score ? 'selected' : '') + '" ' + (!state.user ? 'disabled' : '') + ' aria-label="Dar nota ' + score + ' de 10">' +
       '<span aria-hidden="true">🧄</span><b>' + score + '</b></button>';
   }).join("");
-  $('[data-rating]').forEach(function (button) {
+  $$('[data-rating]').forEach(function (button) {
     button.onclick = function () { submitRating(movie.id, Number(button.dataset.rating)); };
   });
 }
