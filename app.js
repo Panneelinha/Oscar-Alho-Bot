@@ -885,6 +885,7 @@ async function loadSupabaseInteractions() {
     if (!nominationResult.error) state.nominations = nominationResult.data || [];
   }
   await loadLeaderboard();
+  renderFilters();
   renderMovies();
   renderComments();
 }
