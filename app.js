@@ -18,7 +18,9 @@ const state = {
   nominations: [],
   leaderboard: [],
   ratings: {},
-  myRatings: {}
+  myRatings: {},
+  catalogVersion: null,
+  catalogPoll: null
 };
 
 const featuredPosterPromises = new Map();
@@ -805,6 +807,59 @@ async function loadSupabaseInteractions() {
   renderComments();
 }
 
+function applyCatalog(catalog) {
+  if (!catalog || !Array.isArray(catalog.movies) || !catalog.movies.length) return false;
+  var activeId = state.activeMovie && state.activeMovie.id;
+  state.movies = catalog.movies;
+  renderHeaderAndSchedule(catalog);
+  renderFranchises();
+  renderFilters();
+  renderMovies();
+  if (activeId && !$("#modal").hidden) {
+    var stillActive = state.movies.some(function (movie) { return movie.id === activeId; });
+    if (stillActive) openMovie(activeId);
+    else closeModal();
+  }
+  return true;
+}
+
+async function refreshCatalogFromSupabase(force) {
+  if (!state.supabase) return false;
+  var statusResult = await state.supabase
+    .from("catalog_sync_status")
+    .select("last_success_at,movie_count")
+    .eq("id", true)
+    .maybeSingle();
+  if (statusResult.error || !statusResult.data || !statusResult.data.last_success_at) return false;
+  var version = statusResult.data.last_success_at;
+  if (!force && version === state.catalogVersion) return false;
+
+  var catalogResult = await state.supabase
+    .from("catalog_movies")
+    .select("payload")
+    .eq("active", true)
+    .order("position", { ascending: true });
+  if (catalogResult.error) throw catalogResult.error;
+  var movies = (catalogResult.data || [])
+    .map(function (row) { return row.payload; })
+    .filter(Boolean);
+  if (!movies.length) return false;
+  if (applyCatalog({ movies: movies, updatedAt: version })) {
+    state.catalogVersion = version;
+    return true;
+  }
+  return false;
+}
+
+function startCatalogPolling() {
+  if (state.catalogPoll) clearInterval(state.catalogPoll);
+  state.catalogPoll = setInterval(function () {
+    refreshCatalogFromSupabase(false).catch(function (error) {
+      console.warn("Catálogo vivo temporariamente indisponível; mantendo a cópia local.", error);
+    });
+  }, 10000);
+}
+
 async function initSupabase() {
   try {
     var config = {
@@ -822,6 +877,8 @@ async function initSupabase() {
     state.supabase = module.createClient(config.supabaseUrl, config.supabasePublishableKey, {
       auth: { persistSession: true, detectSessionInUrl: true }
     });
+    await refreshCatalogFromSupabase(true);
+    startCatalogPolling();
     var sessionResult = await state.supabase.auth.getSession();
     state.user = sessionResult.data.session ? sessionResult.data.session.user : null;
     state.supabase.auth.onAuthStateChange(function (_event, session) {
@@ -996,11 +1053,7 @@ fetch("./catalog-index.json", { cache: "no-store" })
   })
   .then(async function (catalog) {
     await hydratePosterPack(catalog);
-    state.movies = catalog.movies;
-    renderHeaderAndSchedule(catalog);
-    renderFranchises();
-    renderFilters();
-    renderMovies();
+    applyCatalog(catalog);
     renderAccount();
     renderRanking();
     await initSupabase();
