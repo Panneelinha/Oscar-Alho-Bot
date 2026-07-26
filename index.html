@@ -8,12 +8,13 @@
   <meta property="og:title" content="Oscaralho — Cineclube da Panneelinha" />
   <meta property="og:description" content="Catálogo, próximas sessões, votos e conversas do clube." />
   <meta property="og:image" content="https://panneelinha.github.io/Oscar-Alho-Bot/brand/oscar-alho-original.webp" />
-  <link rel="stylesheet" href="./styles-1.css?v=18" />
-  <link rel="stylesheet" href="./styles-2.css?v=18" />
-  <link rel="stylesheet" href="./styles-3.css?v=18" />
-  <link rel="stylesheet" href="./styles-4.css?v=18" />
-  <link rel="stylesheet" href="./styles-5.css?v=18" />
-  <script type="module" src="./app.js?v=18"></script>
+  <link rel="stylesheet" href="./styles-1.css?v=19" />
+  <link rel="stylesheet" href="./styles-2.css?v=19" />
+  <link rel="stylesheet" href="./styles-3.css?v=19" />
+  <link rel="stylesheet" href="./styles-4.css?v=19" />
+  <link rel="stylesheet" href="./styles-5.css?v=19" />
+  <link rel="stylesheet" href="./styles-6.css?v=19" />
+  <script type="module" src="./app.js?v=19"></script>
 </head>
 <body>
 <main>
@@ -27,6 +28,7 @@
       <a href="#sessoes">Sessões</a>
       <a href="#franquias">Franquias</a>
       <a href="#mais-pedidos">Mais pedidos</a>
+      <a href="#mais-odiados">Mais odiados</a>
       <a href="#catalogo">Catálogo</a>
       <a href="#ranking">Ranking</a>
       <a href="#clube">Clube</a>
@@ -98,6 +100,19 @@
     <div class="most-wanted-rail" id="most-wanted-rail"></div>
     <p class="ranking-empty" id="most-wanted-empty">O ranking começa quando alguém marcar “Quero assistir”.</p>
     <a class="most-wanted-cta" href="#catalogo" data-filter-link="most-wanted">Ver ranking completo</a>
+  </section>
+
+  <section class="most-wanted most-hated" id="mais-odiados" aria-labelledby="most-hated-title">
+    <div class="section-heading compact">
+      <div>
+        <p class="eyebrow">O fundo do Alhômetro</p>
+        <h2 id="most-hated-title">Os filmes mais odiados</h2>
+      </div>
+      <p>As menores notas do clube, reunidas sem repetir o mesmo filme em categorias diferentes.</p>
+    </div>
+    <div class="most-wanted-rail" id="most-hated-rail"></div>
+    <p class="ranking-empty" id="most-hated-empty">O ranking aparece assim que o clube avaliar os filmes assistidos.</p>
+    <a class="most-wanted-cta" href="#catalogo" data-filter-link="most-hated">Ver ranking completo</a>
   </section>
 
   <section class="catalog" id="catalogo" aria-labelledby="catalog-title">
