@@ -1,5 +1,5 @@
 Exit code: 0
-Wall time: 0.8 seconds
+Wall time: 0.4 seconds
 Output:
 """Espelha o catálogo público do Trello no Supabase.
 
@@ -214,6 +214,15 @@ class CatalogSync(commands.Cog):
         if not current_ids:
             raise RuntimeError("o Trello devolveu um catálogo vazio; sincronização cancelada")
         await self.bot.db.rekey_movie_interactions(canonical_mapping)
+        for movie_key in set(canonical_mapping.values()):
+            interest_count = await self.bot.db.count_want(movie_key)
+            if interest_count:
+                await self.bot.supabase.set_bot_interest_count(movie_key, interest_count)
+            rating_sum, rating_count = await self.bot.db.rating_summary(movie_key)
+            if rating_count:
+                await self.bot.supabase.set_bot_rating_summary(
+                    movie_key, rating_sum, rating_count
+                )
         removed_count = await self.bot.supabase.deactivate_missing_catalog_movies(current_ids)
         await self.bot.supabase.set_catalog_sync_status(
             board_last_activity=board_activity,
