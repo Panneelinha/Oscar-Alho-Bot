@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Espelha o catálogo público do Trello no Supabase.
 
 A cada intervalo o bot consulta apenas dateLastActivity do board. O catálogo
@@ -14,7 +17,7 @@ from urllib.parse import urlparse
 
 from discord.ext import commands, tasks
 
-from movies import Movie, parse_comentarios
+from movies import Movie, canonical_movie_key, parse_comentarios
 
 log = logging.getLogger("oscar.catalog_sync")
 
@@ -124,6 +127,7 @@ class CatalogSync(commands.Cog):
         poster = await self._poster(card, previous, activity)
         return {
             "id": movie.id,
+            "canonicalKey": canonical_movie_key(movie),
             "title": movie.name,
             "poster": poster,
             "list": movie.list_name,
@@ -152,6 +156,7 @@ class CatalogSync(commands.Cog):
     async def _sync(self, board_activity: str) -> None:
         lists = await self.bot.trello.get_lists_with_cards()
         current_ids: list[str] = []
+        canonical_mapping: dict[str, str] = {}
         global_position = 0
         changed_count = 0
 
@@ -163,6 +168,7 @@ class CatalogSync(commands.Cog):
                 if not movie_id:
                     continue
                 current_ids.append(movie_id)
+                canonical_mapping[movie_id] = canonical_movie_key(Movie.from_card(card, list_name))
                 previous = self._versions.get(movie_id) or {}
                 old_payload = previous.get("payload") if isinstance(previous.get("payload"), dict) else {}
                 activity = str(card.get("dateLastActivity") or "")
@@ -175,6 +181,8 @@ class CatalogSync(commands.Cog):
                     old_payload.get("list") != list_name
                     or old_payload.get("listOrder") != list_order
                     or old_payload.get("title") != str(card.get("name") or "")
+                    or old_payload.get("canonicalKey")
+                    != canonical_movie_key(Movie.from_card(card, list_name))
                     or previous.get("position") != global_position
                     or not previous.get("active", False)
                 )
@@ -205,6 +213,7 @@ class CatalogSync(commands.Cog):
 
         if not current_ids:
             raise RuntimeError("o Trello devolveu um catálogo vazio; sincronização cancelada")
+        await self.bot.db.rekey_movie_interactions(canonical_mapping)
         removed_count = await self.bot.supabase.deactivate_missing_catalog_movies(current_ids)
         await self.bot.supabase.set_catalog_sync_status(
             board_last_activity=board_activity,
