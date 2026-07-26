@@ -1,4 +1,7 @@
-"""Consome a fila do Supabase e espelha interações do site no Trello.
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
+"""Consome a fila do Supabase e espelha interações do site e Discord no Trello.
 
 A fila (outbox) torna a ponte tolerante a reinícios. O bot é o único componente
 que recebe a service_role e as credenciais privadas do Trello.
@@ -16,7 +19,10 @@ log = logging.getLogger("oscar.site_sync")
 
 DELIM = "───────────"
 HEADER = "🌐 Oscar Alho — interação do site"
-_BLOCK_RE = re.compile(r"\n*" + re.escape(DELIM) + r"\n" + re.escape(HEADER) + r".*?" + re.escape(DELIM), re.S)
+_BLOCK_RE = re.compile(
+    r"\n*" + re.escape(DELIM) + r"\n" + re.escape(HEADER) + r".*?" + re.escape(DELIM),
+    re.S,
+)
 
 
 def _apply_club_summary(
@@ -27,7 +33,11 @@ def _apply_club_summary(
 ) -> str:
     """Atualiza apenas o bloco agregado; nunca expõe quem votou ou avaliou."""
     base = _BLOCK_RE.sub("", desc or "").rstrip()
-    lines = [DELIM, HEADER, f"🍿 Quero assistir: {interest_count} pessoa(s)"]
+    lines = [
+        DELIM,
+        HEADER,
+        f"🍿 Quero assistir: {interest_count} pessoa(s)",
+    ]
     if rating_count and average_score is not None:
         lines.append(f"🧄 Alhômetro: {average_score:.1f}/10 ({rating_count} avaliação(ões))")
     else:
@@ -36,8 +46,8 @@ def _apply_club_summary(
         f"_atualizado em {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')}_",
         DELIM,
     ])
-    bloco = "\n".join(lines)
-    return f"{base}\n\n{bloco}" if base else bloco
+    block = "\n".join(lines)
+    return f"{base}\n\n{block}" if base else block
 
 
 class SiteSync(commands.Cog):
@@ -79,20 +89,24 @@ class SiteSync(commands.Cog):
             f"💬 Site Oscar Alho — {author}\n{body}\n\n{marker}",
         )
 
-    async def _refresh_movie_summary(self, card_id: str) -> None:
-        if not card_id:
+    async def _refresh_movie_summary(self, movie_key: str) -> None:
+        if not movie_key:
             raise ValueError("interação sem movie_id")
-        interest_count = await self.bot.supabase.movie_interest_count(card_id)
-        average_score, rating_count = await self.bot.supabase.movie_rating_count(card_id)
-        movie = await self.bot.catalog.por_id(card_id)
-        if movie is None:
-            raise ValueError(f"card {card_id} não encontrado no catálogo")
-        new_desc = _apply_club_summary(
-            movie.desc, interest_count, average_score, rating_count
-        )
-        if new_desc != movie.desc:
-            await self.bot.trello.update_card_desc(card_id, new_desc)
-            movie.desc = new_desc
+        interest_count = await self.bot.supabase.movie_interest_count(movie_key)
+        average_score, rating_count = await self.bot.supabase.movie_rating_count(movie_key)
+        movies = await self.bot.catalog.por_chave_canonica(movie_key)
+        if not movies:
+            legacy = await self.bot.catalog.por_id(movie_key)
+            movies = [legacy] if legacy is not None else []
+        if not movies:
+            raise ValueError(f"filme {movie_key} não encontrado no catálogo")
+        for movie in movies:
+            new_desc = _apply_club_summary(
+                movie.desc, interest_count, average_score, rating_count
+            )
+            if new_desc != movie.desc:
+                await self.bot.trello.update_card_desc(movie.id, new_desc)
+                movie.desc = new_desc
 
     async def _handle_nomination(self, event: dict, payload: dict) -> None:
         card_id = str(payload.get("movie_id", ""))
@@ -122,7 +136,11 @@ class SiteSync(commands.Cog):
         if await self._already_commented(card_id, marker):
             return
         author = await self._profile_name(payload)
-        labels = {"vou": "vai à sessão", "talvez": "talvez vá à sessão", "nao": "não vai à sessão"}
+        labels = {
+            "vou": "vai à sessão",
+            "talvez": "talvez vá à sessão",
+            "nao": "não vai à sessão",
+        }
         status = labels.get(str(payload.get("status", "")), "atualizou a presença")
         await self.bot.trello.add_comment(
             card_id,
