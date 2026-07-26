@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Comandos de interação do público:
 /indicar, /quero_assistir, /ranking_quero_assistir, /minhas_indicacoes."""
 from __future__ import annotations
@@ -118,10 +121,11 @@ class Indicacoes(commands.Cog):
             try:
                 combined = await supabase.movie_interest_ranking(limit=15)
                 for row in combined:
-                    card_id = str(row.get("movie_id", ""))
-                    mv = await self.bot.catalog.por_id(card_id)
-                    if mv is not None and not foi_assistido(mv.list_name):
-                        rows.append((card_id, mv.name, int(row.get("interest_count") or 0)))
+                    movie_key = str(row.get("movie_id", ""))
+                    matches = await self.bot.catalog.por_chave_canonica(movie_key)
+                    mv = next((item for item in matches if not foi_assistido(item.list_name)), None)
+                    if mv is not None:
+                        rows.append((movie_key, mv.name, int(row.get("interest_count") or 0)))
             except Exception as exc:  # noqa: BLE001
                 log.warning("Falha ao carregar ranking combinado de interesse: %s", exc)
         if not rows:
@@ -150,3 +154,4 @@ class Indicacoes(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Indicacoes(bot))
+
