@@ -955,7 +955,7 @@ async function initSupabase() {
       await loadLegacyInteractions();
       return;
     }
-    var module = await import("/vendor/supabase.js");
+    var module = await import("./vendor/supabase.js");
     state.supabase = module.createClient(config.supabaseUrl, config.supabasePublishableKey, {
       auth: { persistSession: true, detectSessionInUrl: true }
     });
