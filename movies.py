@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.8 seconds
-Output:
 """Modelo de filme e parser do `desc` dos cards do Trello.
 
 O `desc` segue um padrão como:
