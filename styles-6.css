@@ -1,0 +1,25 @@
+.most-hated {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 91, 121, .17), transparent 30%),
+    linear-gradient(135deg, #241226 0%, #08172a 68%);
+}
+.most-hated .eyebrow, .most-hated .wanted-card p, .most-hated .most-wanted-cta { color: #ff8ba2; }
+.most-hated .most-wanted-cta, .hated-card > button { border-color: rgba(255, 91, 121, .7); }
+.hated-card .wanted-position { background: #ff5b79; color: #290914; }
+.card-bostil {
+  position: absolute;
+  z-index: 3;
+  left: 9px;
+  bottom: 10px;
+  transform: rotate(-5deg);
+  border: 2px solid #132314;
+  border-radius: 4px;
+  padding: 6px 8px 5px;
+  background: #d9ff43;
+  color: #132314;
+  font-size: 9px;
+  font-weight: 1000;
+  letter-spacing: .12em;
+  box-shadow: 3px 3px 0 #ff8ba2;
+}
+.bostil-chip { border-color: #d9ff43 !important; background: #d9ff43 !important; color: #132314 !important; font-weight: 1000 !important; letter-spacing: .08em; }
