@@ -6,6 +6,8 @@ somente no ambiente privado onde o bot roda.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import quote
 from typing import Any
 
 import aiohttp
@@ -39,8 +41,17 @@ class SupabaseSyncClient:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _request(self, method: str, path: str, *, json: object | None = None) -> Any:
-        async with self.session.request(method, f"{self.url}/rest/v1{path}", json=json) as resp:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json: object | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        async with self.session.request(
+            method, f"{self.url}/rest/v1{path}", json=json, headers=headers
+        ) as resp:
             body = await resp.text()
             if resp.status >= 300:
                 raise SupabaseSyncError(f"{method} {path} -> HTTP {resp.status}: {body[:240]}")
@@ -71,9 +82,7 @@ class SupabaseSyncClient:
 
     async def movie_interest_ranking(self, limit: int = 20) -> list[dict]:
         data = await self._request(
-            "POST",
-            "/rpc/get_movie_interest_ranking",
-            json={"result_limit": max(1, min(limit, 100))},
+            "POST", "/rpc/get_movie_interest_ranking", json={"result_limit": max(1, min(limit, 100))}
         )
         return data if isinstance(data, list) else []
 
@@ -95,15 +104,11 @@ class SupabaseSyncClient:
 
     async def movie_rating_ranking(self, limit: int = 20) -> list[dict]:
         data = await self._request(
-            "POST",
-            "/rpc/get_movie_rating_ranking",
-            json={"result_limit": max(1, min(limit, 100))},
+            "POST", "/rpc/get_movie_rating_ranking", json={"result_limit": max(1, min(limit, 100))}
         )
         return data if isinstance(data, list) else []
 
-    async def set_bot_rating_summary(
-        self, movie_id: str, rating_sum: int, rating_count: int
-    ) -> None:
+    async def set_bot_rating_summary(self, movie_id: str, rating_sum: int, rating_count: int) -> None:
         await self._request(
             "POST",
             "/rpc/set_bot_movie_rating_summary",
@@ -134,6 +139,83 @@ class SupabaseSyncClient:
                 "target_discord_user_id": discord_user_id,
                 "target_points": max(0, int(points)),
             },
+        )
+
+
+    async def catalog_versions(self) -> dict[str, dict]:
+        data = await self._request(
+            "GET",
+            "/catalog_movies?select=movie_id,position,trello_last_activity,cover_attachment_id,payload,active",
+        )
+        if not isinstance(data, list):
+            return {}
+        return {
+            str(row["movie_id"]): row
+            for row in data
+            if isinstance(row, dict) and row.get("movie_id")
+        }
+
+    async def upsert_catalog_movie(self, row: dict) -> None:
+        await self._request(
+            "POST",
+            "/catalog_movies?on_conflict=movie_id",
+            json=row,
+            headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        )
+
+    async def deactivate_missing_catalog_movies(self, movie_ids: list[str]) -> int:
+        data = await self._request(
+            "POST",
+            "/rpc/deactivate_missing_catalog_movies",
+            json={"current_ids": movie_ids},
+        )
+        return int(data or 0)
+
+    async def set_catalog_sync_status(
+        self,
+        *,
+        board_last_activity: str | None = None,
+        movie_count: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        payload: dict[str, object] = {"last_error": error[:500] if error else None}
+        if error is None:
+            payload["last_success_at"] = datetime.now(timezone.utc).isoformat()
+            if board_last_activity:
+                payload["board_last_activity"] = board_last_activity
+            if movie_count is not None:
+                payload["movie_count"] = max(0, int(movie_count))
+        await self._request("PATCH", "/catalog_sync_status?id=eq.true", json=payload)
+
+    async def upload_movie_poster(
+        self,
+        card_id: str,
+        filename: str,
+        data: bytes,
+        mime_type: str,
+        version: str,
+    ) -> str:
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+        suffix = Path(filename).suffix.lower()
+        if suffix not in allowed_extensions:
+            suffix = {
+                "image/png": ".png",
+                "image/webp": ".webp",
+                "image/gif": ".gif",
+            }.get(mime_type.lower(), ".jpg")
+        object_name = f"{card_id}{suffix}"
+        encoded_name = quote(object_name, safe="")
+        headers = {"Content-Type": mime_type, "x-upsert": "true"}
+        url = f"{self.url}/storage/v1/object/movie-posters/{encoded_name}"
+        async with self.session.request("POST", url, data=data, headers=headers) as resp:
+            body = await resp.text()
+            if resp.status >= 300:
+                raise SupabaseSyncError(
+                    f"POST storage movie-posters/{object_name} -> HTTP {resp.status}: {body[:240]}"
+                )
+        return (
+            f"{self.url}/storage/v1/object/public/movie-posters/{encoded_name}"
+            f"?v={quote(version, safe='')}"
         )
 
     async def mark_processed(self, event_id: int) -> None:
