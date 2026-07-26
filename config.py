@@ -42,7 +42,6 @@ class Config:
     supabase_url: str              # projeto Supabase do site (vazio = ponte desligada)
     supabase_service_role_key: str # chave secreta do servidor; nunca expor no navegador
     supabase_poll_seconds: int     # intervalo da fila Site → Trello
-    trello_catalog_sync_seconds: int  # detector Trello → Supabase
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -52,53 +51,8 @@ class Config:
                 "DISCORD_TOKEN não definido. Copie .env.example para .env e preencha."
             )
         key = os.getenv("TRELLO_API_KEY", "").strip()
-        tok = os.getenv("TRELLO_TOKEN", "").strip()
-        if not key or not tok:
-            raise RuntimeError(
-                "TRELLO_API_KEY e/ou TRELLO_TOKEN não definidos. Veja o README."
-            )
-        poll = os.getenv("POLL_MINUTES", "30").strip()
-        lembrete = os.getenv("LEMBRETE_HORAS", "3").strip()
-        sync_hour = os.getenv("TRELLO_SYNC_HOUR", "23").strip()
-        mode = os.getenv("VOTE_SYNC_MODE", "desc").strip().lower()
-        supabase_poll = os.getenv("SUPABASE_POLL_SECONDS", "30").strip()
-        catalog_sync = os.getenv("TRELLO_CATALOG_SYNC_SECONDS", "10").strip()
-        if mode not in ("desc", "comment", "off"):
-            mode = "desc"
-        return cls(
-            discord_token=token,
-            guild_id=_int("GUILD_ID"),
-            announce_channel_id=_int("ANNOUNCE_CHANNEL_ID"),
-            trello_key=key,
-            trello_token=tok,
-            trello_board_id=os.getenv(
-                "TRELLO_BOARD_ID", "6a2a1f1c8edcf60ea0226a9a"
-            ).strip(),
-            poll_minutes=int(poll) if poll.isdigit() else 30,
-            trello_sync_hour=int(sync_hour) if sync_hour.isdigit() and 0 <= int(sync_hour) <= 23 else 23,
-            vote_sync_mode=mode,
-            db_path=os.getenv("DB_PATH", "oscar_alho.sqlite3").strip() or "oscar_alho.sqlite3",
-            lembrete_horas=int(lembrete) if lembrete.isdigit() and int(lembrete) > 0 else 3,
-            lembrete_role_id=_int("LEMBRETE_ROLE_ID"),
-            telegram_token=os.getenv("TELEGRAM_TOKEN", "").strip(),
-            telegram_allowed_ids=frozenset(
-                int(x) for x in os.getenv("TELEGRAM_ALLOWED_IDS", "").replace(";", ",").split(",")
-                if x.strip().isdigit()
-            ),
-            telegram_chat_id=_int("TELEGRAM_CHAT_ID"),
-            kick_channel_slug=os.getenv("KICK_CHANNEL_SLUG", "").strip().lstrip("@/"),
-            kick_client_id=os.getenv("KICK_CLIENT_ID", "").strip(),
-            kick_client_secret=os.getenv("KICK_CLIENT_SECRET", "").strip(),
-            kick_refresh_token=os.getenv("KICK_REFRESH_TOKEN", "").strip(),
-            kick_chatroom_id=_int("KICK_CHATROOM_ID") or 0,
-            supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
-            supabase_service_role_key=(
-                os.getenv("SUPABASE_SECRET_KEY", "").strip()
+        tok = os.getenv("TREL…611 tokens truncated….strip()
                 or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
             ),
             supabase_poll_seconds=int(supabase_poll) if supabase_poll.isdigit() and int(supabase_poll) >= 10 else 30,
-            trello_catalog_sync_seconds=(
-                int(catalog_sync) if catalog_sync.isdigit() and int(catalog_sync) >= 10 else 10
-            ),
         )
-
