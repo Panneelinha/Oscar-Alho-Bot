@@ -40,6 +40,7 @@ COGS = [
     "cogs.anuncios",
     "cogs.trello_sync",
     "cogs.site_sync",
+    "cogs.catalog_sync",
 ]
 
 
@@ -182,3 +183,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
