@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.8 seconds
+Output:
 """Camada de serviço: lê o board pelo TrelloClient, monta objetos Movie e
 oferece consultas (programação, busca, categorias) com um cache curto."""
 from __future__ import annotations
@@ -17,6 +20,7 @@ from movies import (
     CardExtras,
     Movie,
     Sessao,
+    canonical_movie_key,
     parse_comentarios,
 )
 
@@ -156,6 +160,10 @@ class Catalog:
         await self.refresh()
         return self._by_id.get(card_id)
 
+    async def por_chave_canonica(self, key: str) -> list[Movie]:
+        await self.refresh()
+        return [mv for mv in self._by_id.values() if canonical_movie_key(mv) == key]
+
     async def extras(self, card_id: str) -> CardExtras:
         """Sinopse/trailer/gêneros lidos dos comentários do card (sob demanda)."""
         try:
@@ -201,3 +209,4 @@ class Catalog:
             "top_plataformas": plataformas.most_common(3),
             "duracao_media_min": dur_media,
         }
+
